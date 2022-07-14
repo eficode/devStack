@@ -1,15 +1,17 @@
 package com.eficode.devstack.container.impl
 
-import com.eficode.devstack.container.ContainerManager
+import com.eficode.devstack.container.Container
 import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.remote.api.ContainerCreateRequest
 import de.gesellix.docker.remote.api.HostConfig
 import de.gesellix.docker.remote.api.PortBinding
 
-class JsmContainer implements ContainerManager{
+class JsmContainer implements Container{
 
-    String containerName = "JSM-H2"
+    String containerName = "JSM"
     String containerMainPort = "8080"
+    String containerImage = "atlassian/jira-servicemanagement"
+    String containerImageTag = "latest"
     long jvmMaxRam = 6000
 
     JsmContainer() {}
@@ -20,7 +22,7 @@ class JsmContainer implements ContainerManager{
      * @param dockerCertPath ex: src/test/resources/dockerCert
      */
     JsmContainer(String dockerHost, String dockerCertPath) {
-        dockerClient = setupSecureRemoteConnection(dockerHost, dockerCertPath)
+       assert setupSecureRemoteConnection(dockerHost, dockerCertPath) : "Error setting up secure remote docker connection"
     }
 
 
@@ -31,7 +33,7 @@ class JsmContainer implements ContainerManager{
 
     }
 
-    String createJsmContainer(String jsmContainerName = containerName, String imageName = "atlassian/jira-servicemanagement", String imageTag = "latest", long jsmMaxRamMB = jvmMaxRam, String jsmPort = containerMainPort) {
+    String createJsmContainer(String jsmContainerName = containerName, String imageName = containerImage, String imageTag = containerImageTag, long jsmMaxRamMB = jvmMaxRam, String jsmPort = containerMainPort) {
 
         assert dockerClient.ping().content as String == "OK", "Error Connecting to docker service"
 
