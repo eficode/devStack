@@ -67,6 +67,12 @@
 
     </dependencies>
 
+    <repositories>
+        <repository>
+            <id>eficode-github-jiraManagerRest</id>
+            <url>https://github.com/eficode/JiraInstanceMangerRest/raw/pre_v1_tweaks/repository/</url>
+        </repository>
+    </repositories>
     <build>
         <plugins>
             <plugin>
