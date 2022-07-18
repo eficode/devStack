@@ -21,9 +21,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 
-trait ContainerManager {
+trait Container {
 
-    static Logger log = LoggerFactory.getLogger(ContainerManager.class)
+    static Logger log = LoggerFactory.getLogger(Container.class)
     static DockerClientImpl dockerClient = new DockerClientImpl()
     abstract String containerName
     abstract String containerMainPort
@@ -42,22 +42,44 @@ trait ContainerManager {
      * @param host ex: "https://docker.domain.se:2376"
      * @param certPath folder containing ca.pem, cert.pem, key.pem
      */
-    static DockerClientImpl setupSecureRemoteConnection(String host, String certPath) {
+    boolean setupSecureRemoteConnection(String host, String certPath) {
 
         DockerClientConfig dockerConfig = new DockerClientConfig(host)
         DockerEnv dockerEnv = new DockerEnv(host)
         dockerEnv.setCertPath(certPath)
         dockerEnv.setTlsVerify("1")
         dockerConfig.apply(dockerEnv)
-
-        return new DockerClientImpl(dockerConfig)
+        dockerClient = new DockerClientImpl(dockerConfig)
+        return ping()
 
     }
 
 
     boolean ping() {
-        return dockerClient.ping().content as String == "OK"
+        try {
+            return dockerClient.ping().content as String == "OK"
+        }catch(SocketException ex) {
+            log.warn("Failed to ping Docker engine:" + ex.message)
+            return false
+        }
+
     }
+
+
+
+
+    boolean isCreated(){
+
+        ArrayList<Map> content = dockerClient.ps().content
+        ArrayList<String> containerNames = content.collect {it.Names}.flatten()
+        return containerNames.find{ it == "/" + getContainerName()} != null
+
+    }
+
+    String getId() {
+        return containerId
+    }
+
     String getContainerId() {
 
         if (containerId) {
@@ -99,6 +121,18 @@ trait ContainerManager {
         return false
 
 
+    }
+
+    boolean stopContainer() {
+        log.info("Stopping container:" + containerId)
+        dockerClient.stop(containerId, 240000)
+        if (dockerClient.inspectContainer(containerId).content.state.running) {
+            log.warn("\tFailed to stop container" + containerId)
+            return false
+        }else {
+            log.info("\tContainer stopped")
+            return true
+        }
     }
 
 

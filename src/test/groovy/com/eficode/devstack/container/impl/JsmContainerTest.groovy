@@ -2,6 +2,8 @@ package com.eficode.devstack.container.impl
 
 
 import de.gesellix.docker.client.DockerClientImpl
+import de.gesellix.docker.engine.DockerClientConfig
+import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.core.ClientException
@@ -26,14 +28,44 @@ class JsmContainerTest extends Specification {
     @Shared
     String dockerRemoteHost = "https://docker.domain.com:2376"
     @Shared
-    String dockerCertPath = "src/test/resources/dockerCert"
+    String dockerCertPath = "resources/dockerCert"
 
 
     def setupSpec() {
         dockerClient = resolveDockerClient()
-        dockerClient.rm("JSM-H2")
+        dockerClient.rm("JSM")
     }
 
+    def "test isCreated"() {
+
+        when:
+        log.info("Testing isCreated")
+        JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
+
+        then:
+        !jsm.isCreated()
+        log.info("\tDid not return a false positive")
+
+        when:
+        String containerId = jsm.createContainer()
+        log.info("\tCreated container:" + containerId)
+
+        then:
+        jsm.isCreated()
+        log.info("\tisCreated now returns true")
+
+        when:
+        jsm.stopAndRemoveContainer() ?: {throw new Exception("Error revoming container $containerId")}
+        log.info("\tRemoved container")
+
+        then:
+        !jsm.isCreated()
+        log.info("\tisCreated now again returns false")
+
+        cleanup:
+        containerId ? dockerClient.rm(containerId) : ""
+
+    }
 
     def "test setupSecureRemoteConnection"() {
 
@@ -47,6 +79,7 @@ class JsmContainerTest extends Specification {
         then:
         assert jsm.ping(): "Error pinging docker engine"
         assert jsm.dockerClient.dockerClientConfig.scheme == "https"
+
 
     }
 
@@ -231,7 +264,7 @@ class JsmContainerTest extends Specification {
         if (!pemFiles.empty && pemFiles.every { pemFile -> ["ca.pem", "cert.pem", "key.pem"].find { it == pemFile.name } }) {
             log.info("\tFound Docker certs, returning Secure remote Docker connection")
             try {
-                DockerClientImpl dockerClient = JsmContainer.setupSecureRemoteConnection(dockerRemoteHost, dockerCertPath)
+                DockerClientImpl dockerClient = setupSecureRemoteConnection(dockerRemoteHost, dockerCertPath)
                 assert dockerClient.ping().content as String == "OK": "Error pinging remote Docker engine"
                 return dockerClient
             } catch (ex) {
@@ -245,6 +278,23 @@ class JsmContainerTest extends Specification {
         log.info("\tMissing Docker certs, returning local docker connection")
 
         return new DockerClientImpl()
+
+    }
+
+    /**
+     * Replaced the default docker connection (local) with a remote, secure one
+     * @param host ex: "https://docker.domain.se:2376"
+     * @param certPath folder containing ca.pem, cert.pem, key.pem
+     */
+    static DockerClientImpl setupSecureRemoteConnection(String host, String certPath) {
+
+        DockerClientConfig dockerConfig = new DockerClientConfig(host)
+        DockerEnv dockerEnv = new DockerEnv(host)
+        dockerEnv.setCertPath(certPath)
+        dockerEnv.setTlsVerify("1")
+        dockerConfig.apply(dockerEnv)
+
+        return new DockerClientImpl(dockerConfig)
 
     }
 }

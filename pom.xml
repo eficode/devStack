@@ -7,6 +7,15 @@
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <description>A series of scripts for setting up common developer application suites</description>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>Eficode Devstack</name>
+            <url>https://maven.pkg.github.com/eficode/devStack</url>
+        </repository>
+    </distributionManagement>
 
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.codehaus.groovy/groovy-all -->
@@ -49,12 +58,38 @@
             <version>3.13.6</version>
             <classifier>standalone</classifier>
         </dependency>
+        <dependency>
+            <groupId>com.eficode.atlassian</groupId>
+            <artifactId>jirainstancemanger</artifactId>
+            <version>1.0.1-SNAPSHOT</version>
+        </dependency>
 
 
     </dependencies>
 
+    <repositories>
+        <repository>
+            <id>eficode-github-jiraManagerRest</id>
+            <url>https://github.com/eficode/JiraInstanceMangerRest/raw/pre_v1_tweaks/repository/</url>
+        </repository>
+    </repositories>
     <build>
+        <sourceDirectory>${basedir}/src/main/groovy</sourceDirectory>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.codehaus.gmavenplus</groupId>
                 <artifactId>gmavenplus-plugin</artifactId>
@@ -74,11 +109,7 @@
                         <scope>runtime</scope>
                     </dependency>
                 </dependencies>
-                <configuration>
-                    <scripts>
-                        <script>src/main/groovy/Main.groovy</script>
-                    </scripts>
-                </configuration>
+
             </plugin>
         </plugins>
     </build>
