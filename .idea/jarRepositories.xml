@@ -7,6 +7,11 @@
       <option name="url" value="https://maven.pkg.github.com/eficode/JiraInstanceManagerRest" />
     </remote-repository>
     <remote-repository>
+      <option name="id" value="eficode-github-jiraManagerRest" />
+      <option name="name" value="eficode-github-jiraManagerRest" />
+      <option name="url" value="https://github.com/eficode/JiraInstanceMangerRest/raw/packages/repository/" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="central" />
       <option name="name" value="Central Repository" />
       <option name="url" value="https://repo.maven.apache.org/maven2" />

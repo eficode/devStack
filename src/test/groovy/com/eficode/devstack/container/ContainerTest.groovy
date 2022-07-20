@@ -12,6 +12,8 @@ class ContainerTest extends Specification {
 
     static Logger log = LoggerFactory.getLogger(ContainerTest.class)
 
+    String dockerHost = "https://docker.domain.se:2376"
+    String dockerCertPath = "./resources/dockerCert"
 
 
     class ContainerImpl implements Container {
@@ -22,6 +24,18 @@ class ContainerTest extends Specification {
         String createContainer() {}
     }
 
+
+
+    def testPing() {
+
+        setup:
+        ContainerImpl container = new ContainerImpl()
+        container.setupSecureRemoteConnection(dockerHost, dockerCertPath)
+
+        expect:
+        container.ping()
+
+    }
 
     def testCreateTar() {
 

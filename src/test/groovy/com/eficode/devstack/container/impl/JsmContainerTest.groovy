@@ -33,6 +33,7 @@ class JsmContainerTest extends Specification {
 
     def setupSpec() {
         dockerClient = resolveDockerClient()
+        dockerClient.stop("JSM")
         dockerClient.rm("JSM")
     }
 

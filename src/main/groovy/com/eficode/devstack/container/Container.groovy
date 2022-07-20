@@ -68,7 +68,7 @@ trait Container {
 
         ArrayList<Map> content = dockerClient.ps().content
         ArrayList<String> containerNames = content.collect { it.Names }.flatten()
-        return containerNames.find { it == "/" + getContainerName() } != null
+        return containerNames.find { it == "/" + self.containerName } != null
 
     }
 
@@ -76,16 +76,21 @@ trait Container {
         return containerId
     }
 
+    def getSelf() {
+        return this
+    }
+
     String getContainerId() {
 
         if (containerId) {
             return containerId
         }
-        log.info("\tResolving container ID for: $containerName")
+        log.info("\tResolving container ID for:" + self.containerName)
+
 
         ArrayList<Map> content = dockerClient.ps().content
 
-        Map container = content.find { it.Names.first() == "/" + containerName }
+        Map container = content.find { it.Names.first() == "/" + self.containerName }
         this.containerId = container?.Id
         log.info("\tGot:" + this.containerId)
 
@@ -94,36 +99,44 @@ trait Container {
 
     boolean startContainer() {
 
-        dockerClient.startContainer(containerId)
+        dockerClient.startContainer(self.containerId)
 
-        return dockerClient.inspectContainer(containerId).content.state.running
+        return isRunning()
+    }
+
+    boolean isRunning() {
+        return dockerClient.inspectContainer(self.containerId).content.state.running
     }
 
     boolean stopAndRemoveContainer() {
 
-        dockerClient.stop(containerId, 240000)
-        dockerClient.wait(containerId)
-        dockerClient.rm(containerId)
+        if (self.containerId) {
+            dockerClient.stop(self.containerId, 240000)
+            dockerClient.wait(self.containerId)
+            dockerClient.rm(self.containerId)
 
 
-        try {
-            dockerClient.inspectContainer(containerId)
-        } catch (ClientException ex) {
+            try {
+                dockerClient.inspectContainer(self.containerId)
+            } catch (ClientException ex) {
 
-            if (ex.response.message == "Not Found") {
-                return true
+                if (ex.response.message == "Not Found") {
+                    return true
+                }
             }
+            return false
+        }else {
+            return false
         }
-        return false
 
 
     }
 
     boolean stopContainer() {
-        log.info("Stopping container:" + containerId)
-        dockerClient.stop(containerId, 240000)
-        if (dockerClient.inspectContainer(containerId).content.state.running) {
-            log.warn("\tFailed to stop container" + containerId)
+        log.info("Stopping container:" + self.containerId)
+        dockerClient.stop(self.containerId, 240000)
+        if (running) {
+            log.warn("\tFailed to stop container" + self.containerId)
             return false
         } else {
             log.info("\tContainer stopped")
@@ -137,7 +150,7 @@ trait Container {
 
         log.info("Creating tar file:" + outputPath)
         log.debug("\tUsing source paths:")
-        filePaths.each {log.debug("\t\t$it")}
+        filePaths.each { log.debug("\t\t$it") }
 
 
         File outputFile = new File(outputPath)
@@ -150,34 +163,31 @@ trait Container {
             File newEntryFile = new File(filePath)
 
             assert (newEntryFile.isDirectory() || newEntryFile.isFile()) && newEntryFile.canRead(), "Error creating TAR cant read file:" + filePath
-            log.trace("\t"*3 + "Can read file/dir")
+            log.trace("\t" * 3 + "Can read file/dir")
 
             if (newEntryFile.isDirectory()) {
-                log.trace("\t"*3 + "File is actually directory, processing sub files")
+                log.trace("\t" * 3 + "File is actually directory, processing sub files")
                 newEntryFile.eachFileRecurse(FileType.FILES) { subFile ->
 
-                    String path =  ResourceGroovyMethods.relativePath(newEntryFile, subFile)
-                    log.trace("\t"*4 + "Processing sub file:" + path)
+                    String path = ResourceGroovyMethods.relativePath(newEntryFile, subFile)
+                    log.trace("\t" * 4 + "Processing sub file:" + path)
                     TarArchiveEntry entry = new TarArchiveEntry(subFile, path)
                     entry.setSize(subFile.size())
                     tarArchive.putArchiveEntry(entry)
                     tarArchive.write(subFile.bytes)
                     tarArchive.closeArchiveEntry()
-                    log.trace("\t"*5 + "Added to archive")
+                    log.trace("\t" * 5 + "Added to archive")
                 }
             } else {
-                log.trace("\t"*4 + "Processing file:" + newEntryFile.name)
+                log.trace("\t" * 4 + "Processing file:" + newEntryFile.name)
                 TarArchiveEntry entry = new TarArchiveEntry(newEntryFile, newEntryFile.name)
                 entry.setSize(newEntryFile.size())
                 tarArchive.putArchiveEntry(entry)
                 tarArchive.write(newEntryFile.bytes)
                 tarArchive.closeArchiveEntry()
-                log.trace("\t"*5 + "Added to archive")
+                log.trace("\t" * 5 + "Added to archive")
 
             }
-
-
-
 
 
         }
@@ -231,7 +241,7 @@ trait Container {
     ArrayList<File> copyFilesFromContainer(String containerPath, String destinationPath) {
 
         //containerPath can be both a directory or a file
-        EngineResponse<InputStream> response = dockerClient.getArchive(containerId, containerPath)
+        EngineResponse<InputStream> response = dockerClient.getArchive(self.containerId, containerPath)
 
 
         Path tempFile = Files.createTempFile("docker_download", ".tar")
@@ -249,7 +259,7 @@ trait Container {
 
 
         File tarFile = createTar([srcFilePath], Files.createTempFile("docker_upload", ".tar").toString())
-        dockerClient.putArchive(containerId, destinationDirectory, tarFile.newDataInputStream())
+        dockerClient.putArchive(self.containerId, destinationDirectory, tarFile.newDataInputStream())
 
         return tarFile.delete()
     }
@@ -273,9 +283,19 @@ trait Container {
 
     ArrayList<String> runBashCommandInContainer(String command, long timeoutS = 10) {
 
+        log.info("Executing bash command in container:")
+        log.info("\tContainer:" + self.containerName + " (${self.containerId})")
+        log.info("\tCommand:" + command)
+        log.info("\tTimeout:" + timeoutS)
+        if (log.isTraceEnabled()) {
+            log.trace("\tDocker ping:" + dockerClient.ping().content as String)
+        }
+
+
 
         ContainerCallback callBack = new ContainerCallback()
-        EngineResponse<IdResponse> response = dockerClient.exec(containerId, ["/bin/bash", "-c", command], callBack, Duration.ofSeconds(timeoutS))
+        EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, ["/bin/bash", "-c", command], callBack, Duration.ofSeconds(timeoutS))
+
 
 
         return callBack.output
