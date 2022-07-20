@@ -8,12 +8,14 @@ import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.core.ClientException
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
+import groovy.io.FileType
 import org.apache.commons.compress.archivers.ArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.io.FileUtils
+import org.codehaus.groovy.runtime.ResourceGroovyMethods
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -31,10 +33,6 @@ trait Container {
 
 
     abstract String createContainer()
-
-
-
-
 
 
     /**
@@ -58,7 +56,7 @@ trait Container {
     boolean ping() {
         try {
             return dockerClient.ping().content as String == "OK"
-        }catch(SocketException ex) {
+        } catch (SocketException ex) {
             log.warn("Failed to ping Docker engine:" + ex.message)
             return false
         }
@@ -66,13 +64,11 @@ trait Container {
     }
 
 
-
-
-    boolean isCreated(){
+    boolean isCreated() {
 
         ArrayList<Map> content = dockerClient.ps().content
-        ArrayList<String> containerNames = content.collect {it.Names}.flatten()
-        return containerNames.find{ it == "/" + getContainerName()} != null
+        ArrayList<String> containerNames = content.collect { it.Names }.flatten()
+        return containerNames.find { it == "/" + getContainerName() } != null
 
     }
 
@@ -129,35 +125,64 @@ trait Container {
         if (dockerClient.inspectContainer(containerId).content.state.running) {
             log.warn("\tFailed to stop container" + containerId)
             return false
-        }else {
+        } else {
             log.info("\tContainer stopped")
             return true
         }
     }
 
 
-
-
     static File createTar(ArrayList<String> filePaths, String outputPath) {
 
 
+        log.info("Creating tar file:" + outputPath)
+        log.debug("\tUsing source paths:")
+        filePaths.each {log.debug("\t\t$it")}
+
+
         File outputFile = new File(outputPath)
-        TarArchiveOutputStream out = new TarArchiveOutputStream(Files.newOutputStream(outputFile.toPath()))
+        TarArchiveOutputStream tarArchive = new TarArchiveOutputStream(Files.newOutputStream(outputFile.toPath()))
 
+        log.info("\tProcessing files")
         filePaths.each { filePath ->
+            log.debug("\t\tEvaluating:" + filePath)
+
             File newEntryFile = new File(filePath)
-            assert newEntryFile.isFile() && newEntryFile.canRead(), "Error creating TAR cant read file:" + filePath
+
+            assert (newEntryFile.isDirectory() || newEntryFile.isFile()) && newEntryFile.canRead(), "Error creating TAR cant read file:" + filePath
+            log.trace("\t"*3 + "Can read file/dir")
+
+            if (newEntryFile.isDirectory()) {
+                log.trace("\t"*3 + "File is actually directory, processing sub files")
+                newEntryFile.eachFileRecurse(FileType.FILES) { subFile ->
+
+                    String path =  ResourceGroovyMethods.relativePath(newEntryFile, subFile)
+                    log.trace("\t"*4 + "Processing sub file:" + path)
+                    TarArchiveEntry entry = new TarArchiveEntry(subFile, path)
+                    entry.setSize(subFile.size())
+                    tarArchive.putArchiveEntry(entry)
+                    tarArchive.write(subFile.bytes)
+                    tarArchive.closeArchiveEntry()
+                    log.trace("\t"*5 + "Added to archive")
+                }
+            } else {
+                log.trace("\t"*4 + "Processing file:" + newEntryFile.name)
+                TarArchiveEntry entry = new TarArchiveEntry(newEntryFile, newEntryFile.name)
+                entry.setSize(newEntryFile.size())
+                tarArchive.putArchiveEntry(entry)
+                tarArchive.write(newEntryFile.bytes)
+                tarArchive.closeArchiveEntry()
+                log.trace("\t"*5 + "Added to archive")
+
+            }
 
 
-            TarArchiveEntry entry = new TarArchiveEntry(newEntryFile, newEntryFile.name)
-            entry.setSize(newEntryFile.size())
-            out.putArchiveEntry(entry)
-            out.write(newEntryFile.bytes)
 
-            out.closeArchiveEntry()
+
+
         }
 
-        out.finish()
+        tarArchive.finish()
 
         return outputFile
 
@@ -167,11 +192,10 @@ trait Container {
     static ArrayList<File> extractTar(File tarFile, String outputPath) {
 
 
-
-        log.info("Extracting: " + tarFile.path + " (${tarFile.size()/1024}kB)")
+        log.info("Extracting: " + tarFile.path + " (${tarFile.size() / 1024}kB)")
         log.info("\tTo:" + outputPath)
         assert outputPath[-1] == "/", "outputPath must end with /"
-        ArrayList<File>outFiles = []
+        ArrayList<File> outFiles = []
         TarArchiveInputStream i = new TarArchiveInputStream(tarFile.newInputStream())
 
         ArchiveEntry entry = null
@@ -184,11 +208,11 @@ trait Container {
 
             if (entry.isDirectory()) {
                 assert outFile.mkdirs(), "Error creating directory:" + outFile.path
-            }else {
+            } else {
                 outFile.parentFile.mkdirs()
                 OutputStream o = Files.newOutputStream(outFile.toPath())
-                long output = IOUtils.copy(i,o)
-                log.trace("\t\tExtracted ${(output/1024).round(1)}kB")
+                long output = IOUtils.copy(i, o)
+                log.trace("\t\tExtracted ${(output / 1024).round(1)}kB")
                 o.close()
             }
             outFiles.add(outFile)
@@ -231,9 +255,6 @@ trait Container {
     }
 
 
-
-
-
     static class ContainerCallback<T> implements StreamCallback<T> {
 
         ArrayList<String> output = []
@@ -242,7 +263,7 @@ trait Container {
         void onNext(Object o) {
             if (o instanceof Frame) {
                 output.add(o.payloadAsString)
-            }else {
+            } else {
                 output.add(o.toString())
             }
 
@@ -250,17 +271,15 @@ trait Container {
     }
 
 
-    ArrayList<String> runBashCommandInContainer(String command, long timeoutS=10) {
+    ArrayList<String> runBashCommandInContainer(String command, long timeoutS = 10) {
 
 
         ContainerCallback callBack = new ContainerCallback()
-        EngineResponse<IdResponse> response = dockerClient.exec(containerId, ["/bin/bash", "-c", command],callBack , Duration.ofSeconds(timeoutS))
-
+        EngineResponse<IdResponse> response = dockerClient.exec(containerId, ["/bin/bash", "-c", command], callBack, Duration.ofSeconds(timeoutS))
 
 
         return callBack.output
     }
-
 
 
 }

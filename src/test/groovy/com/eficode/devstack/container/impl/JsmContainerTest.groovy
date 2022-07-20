@@ -26,7 +26,7 @@ class JsmContainerTest extends Specification {
 
 
     @Shared
-    String dockerRemoteHost = "https://docker.domain.com:2376"
+    String dockerRemoteHost = "https://docker.domain.se:2376"
     @Shared
     String dockerCertPath = "resources/dockerCert"
 
