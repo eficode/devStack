@@ -5,6 +5,7 @@ import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
 import de.gesellix.docker.remote.api.IdResponse
+import de.gesellix.docker.remote.api.Mount
 import de.gesellix.docker.remote.api.core.ClientException
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
@@ -30,6 +31,23 @@ trait Container {
     abstract String containerName
     abstract String containerMainPort
     String containerId
+    ArrayList<Mount> mounts = []
+
+
+    void prepareBindMount(String sourceAbs, String target, boolean readOnly = true){
+        assert !isCreated() : "Bind mounts cant be prepared for already created container"
+
+        this.mounts.add(
+                new Mount().tap{m ->
+                    m.source = sourceAbs
+                    m.target = target
+                    m.readOnly = readOnly
+                    m.type = Mount.Type.Bind
+                }
+        )
+    }
+
+
 
 
     abstract String createContainer()
