@@ -18,7 +18,25 @@
     </distributionManagement>
 
     <dependencies>
+        <!-- https://mvnrepository.com/artifact/com.slack.api/slack-api-client -->
+        <dependency>
+            <groupId>com.slack.api</groupId>
+            <artifactId>slack-api-client</artifactId>
+            <version>1.24.0</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/org.codehaus.groovy/groovy-all -->
+        <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>5.8.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit</artifactId>
+            <version>6.2.0.202206071550-r</version>
+        </dependency>
+
         <dependency>
             <groupId>org.codehaus.groovy</groupId>
             <artifactId>groovy-all</artifactId>
@@ -34,6 +52,11 @@
             <groupId>de.gesellix</groupId>
             <artifactId>docker-client</artifactId>
             <version>2022-05-24T07-36-00</version>
+        </dependency>
+        <dependency>
+            <groupId>de.gesellix</groupId>
+            <artifactId>testutil</artifactId>
+            <version>2022-07-25T19-40-00</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

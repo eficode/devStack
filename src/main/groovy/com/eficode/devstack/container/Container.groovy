@@ -5,9 +5,9 @@ import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
 import de.gesellix.docker.remote.api.IdResponse
+import de.gesellix.docker.remote.api.client.BuildInfoExtensionsKt
 import de.gesellix.docker.remote.api.core.ClientException
 import de.gesellix.docker.remote.api.core.Frame
-import de.gesellix.docker.remote.api.core.StreamCallback
 import groovy.io.FileType
 import org.apache.commons.compress.archivers.ArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
@@ -16,17 +16,28 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.io.FileUtils
 import org.codehaus.groovy.runtime.ResourceGroovyMethods
+import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.errors.GitAPIException
+import org.eclipse.jgit.api.errors.InvalidRemoteException
+import org.eclipse.jgit.api.errors.TransportException
+import org.eclipse.jgit.lib.Repository
+import java.util.concurrent.CountDownLatch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import oshi.SystemInfo
+
+import de.gesellix.docker.remote.api.BuildInfo
+import de.gesellix.docker.remote.api.core.StreamCallback
 
 trait Container {
 
     static Logger log = LoggerFactory.getLogger(Container.class)
-    static DockerClientImpl dockerClient = new DockerClientImpl()
+   // static DockerClientImpl dockerClient = new DockerClientImpl()
+    static DockerClientImpl dockerClient = new DockerClientImpl(new DockerEnv("unix:///var/run/docker.sock"))
     abstract String containerName
     abstract String containerMainPort
     String containerId
@@ -34,6 +45,52 @@ trait Container {
 
     abstract String createContainer()
 
+
+    static Repository cloneRepository(String srcUrl, String dir) throws InvalidRemoteException, TransportException, GitAPIException{
+        // prepare a new folder for the cloned repository
+        File targetDir = new File(dir)
+        if (targetDir.exists()) {
+            assert targetDir.deleteDir(): "Could not delete temporary Directory ${targetDir}"
+        }
+        log.info("Cloning Remote Repository from "+srcUrl+" to "+dir)
+        try (Git result=Git.cloneRepository()
+                .setBare(false)
+                .setCloneAllBranches(true)
+                .setCloneSubmodules(true)
+                .setURI(srcUrl)
+                .setDirectory(targetDir)
+                .call()) {
+                    return result.getRepository();
+                }
+    }
+
+/*
+
+    def buildDockerImage(Duration duration, String tag, String JIRA_VERSION, String artifact_name, InputStream tarFile ) {
+        log.info("DOCKER BUILD INITIATED!!!!")
+        ImageCallback callback = new ImageCallback()
+        dockerClient.manageImage.build(callback, duration, "", tag, false, false, "", false, '{"JIRA_VERSION":"$JIRA_VERSION, "ARTEFACT_NAME":"$artifact_name"}', "", "", "", tarFile)
+        log.info("BUILD COMMAND is RAN")
+        while (!callback.onFinished()) {
+            sleep(100)
+
+        }
+        return callback
+    }
+
+    String getImageId(ImageCallback<BuildInfo> imageCallback){
+        def imageId = BuildInfoExtensionsKt.getImageId(imageCallback.infos)
+        log.info("IMAGE ID: "+imageId)
+        return imageId
+    }
+
+    String getImageName(ImageCallback<BuildInfo> imageCallback){
+        String imageStream=imageCallback.infos["stream"].last().toString()
+        String m1_image_name=imageStream.replace("Successfully tagged ", '').trim()
+        log.info("Image Name: "+m1_image_name)
+        return m1_image_name
+    }
+*/
 
     /**
      * Replaced the default docker connection (local) with a remote, secure one
@@ -152,7 +209,6 @@ trait Container {
         log.debug("\tUsing source paths:")
         filePaths.each { log.debug("\t\t$it") }
 
-
         File outputFile = new File(outputPath)
         TarArchiveOutputStream tarArchive = new TarArchiveOutputStream(Files.newOutputStream(outputFile.toPath()))
 
@@ -163,16 +219,17 @@ trait Container {
             File newEntryFile = new File(filePath)
 
             assert (newEntryFile.isDirectory() || newEntryFile.isFile()) && newEntryFile.canRead(), "Error creating TAR cant read file:" + filePath
-            log.trace("\t" * 3 + "Can read file/dir")
+            log.debug("\t" * 3 + "Can read file/dir")
 
             if (newEntryFile.isDirectory()) {
-                log.trace("\t" * 3 + "File is actually directory, processing sub files")
+                log.debug("\t" * 3 + "File is actually directory, processing sub files")
                 newEntryFile.eachFileRecurse(FileType.FILES) { subFile ->
 
                     String path = ResourceGroovyMethods.relativePath(newEntryFile, subFile)
-                    log.trace("\t" * 4 + "Processing sub file:" + path)
+                    log.debug("\t" * 4 + "Processing sub file:" + path)
                     TarArchiveEntry entry = new TarArchiveEntry(subFile, path)
                     entry.setSize(subFile.size())
+                    entry.setMode(entry.getMode() | 0755)
                     tarArchive.putArchiveEntry(entry)
                     tarArchive.write(subFile.bytes)
                     tarArchive.closeArchiveEntry()
@@ -182,6 +239,7 @@ trait Container {
                 log.trace("\t" * 4 + "Processing file:" + newEntryFile.name)
                 TarArchiveEntry entry = new TarArchiveEntry(newEntryFile, newEntryFile.name)
                 entry.setSize(newEntryFile.size())
+                entry.setMode(entry.getMode() | 0755)
                 tarArchive.putArchiveEntry(entry)
                 tarArchive.write(newEntryFile.bytes)
                 tarArchive.closeArchiveEntry()
@@ -281,6 +339,8 @@ trait Container {
     }
 
 
+
+
     ArrayList<String> runBashCommandInContainer(String command, long timeoutS = 10) {
 
         log.info("Executing bash command in container:")
@@ -300,6 +360,7 @@ trait Container {
 
         return callBack.output
     }
+
 
 
 }
