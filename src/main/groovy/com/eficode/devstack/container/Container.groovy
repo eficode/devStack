@@ -4,6 +4,7 @@ import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
+import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
 import de.gesellix.docker.remote.api.core.ClientException
@@ -122,8 +123,16 @@ trait Container {
         return isRunning()
     }
 
+    ContainerInspectResponse inspect() {
+        return dockerClient.inspectContainer(self.containerId).content
+    }
+
     boolean isRunning() {
-        return dockerClient.inspectContainer(self.containerId).content.state.running
+        return inspect().state.running
+    }
+
+    String getIp(){
+        inspect().networkSettings.ipAddress
     }
 
     boolean stopAndRemoveContainer() {
@@ -135,7 +144,7 @@ trait Container {
 
 
             try {
-                dockerClient.inspectContainer(self.containerId)
+                inspect()
             } catch (ClientException ex) {
 
                 if (ex.response.message == "Not Found") {
