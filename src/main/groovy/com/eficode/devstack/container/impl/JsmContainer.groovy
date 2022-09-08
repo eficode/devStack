@@ -10,6 +10,7 @@ class JsmContainer implements Container{
 
     String containerName = "JSM"
     String containerMainPort = "8080"
+    ArrayList <String> customEnvVar = [] //Ex: ["key=value", "PATH=/user/local/sbin"]
     String containerImage = "atlassian/jira-servicemanagement"
     String containerImageTag = "latest"
     long jvmMaxRam = 6000
@@ -45,11 +46,13 @@ class JsmContainer implements Container{
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = imageName + ":" + imageTag
-            c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m"]
+            c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m"] + customEnvVar
             c.exposedPorts = [(jsmPort + "/tcp"): [:]]
             c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(jsmPort+"/tcp"): [new PortBinding("0.0.0.0", (jsmPort))]] }
 
         }
+
+
 
 
 
