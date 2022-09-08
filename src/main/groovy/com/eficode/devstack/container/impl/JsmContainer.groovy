@@ -37,25 +37,25 @@ class JsmContainer implements Container{
 
     }
 
-    String createJsmContainer(String containerName = this.containerName, String imageName = containerImage, String imageTag = containerImageTag, long jsmMaxRamMB = jvmMaxRam, String webPort = containerMainPort) {
+    String createJsmContainer(String jsmContainerName = containerName, String imageName = containerImage, String imageTag = containerImageTag, long jsmMaxRamMB = jvmMaxRam, String jsmPort = containerMainPort) {
 
-        assert dockerClient.ping().content as String == "OK", "Error Connecting to docker service"
+        assert ping(),  "Error Connecting to docker engine"
 
 
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = imageName + ":" + imageTag
             c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m"]
-            c.exposedPorts = [(webPort + "/tcp"): [:]]
-            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(webPort + "/tcp"): [new PortBinding("0.0.0.0", (webPort.toString()))]] }
+            c.exposedPorts = [(jsmPort + "/tcp"): [:]]
+            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(jsmPort+"/tcp"): [new PortBinding("0.0.0.0", (jsmPort))]] }
 
         }
 
 
 
         //EngineResponseContent response = dockerClient.run(containerCreateRequest, jsmContainerName)
-        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, containerName)
-        assert response.content.warnings.isEmpty(): "Error when creating $containerName container:" + response.content.warnings.join(",")
+        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, jsmContainerName)
+        assert response.content.warnings.isEmpty(): "Error when creating $jsmContainerName container:" + response.content.warnings.join(",")
 
         containerId = response.content.id
         return containerId

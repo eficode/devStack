@@ -9,7 +9,7 @@ class JsmH2Deployment implements Deployment{
 
     String friendlyName = "JIRA H2 Deployment"
     JiraInstanceMangerRest jiraRest
-    ArrayList<Container> containers = [new JsmContainer()]
+    ArrayList<Container> containers = []
     Map<String,String> appsToInstall = [:]
     String jiraLicense
 
@@ -17,7 +17,8 @@ class JsmH2Deployment implements Deployment{
 
     JsmH2Deployment(String jiraBaseUrl) {
         this.jiraBaseUrl = jiraBaseUrl
-        jiraRest = new JiraInstanceMangerRest(jiraBaseUrl)
+        this.jiraRest = new JiraInstanceMangerRest(jiraBaseUrl)
+        this.containers = [new JsmContainer()]
     }
 
     JsmContainer getJsmContainer() {

@@ -6,7 +6,7 @@
 
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.6-SNAPSHOT</version>
     <description>A series of scripts for setting up common developer application suites</description>
 
     <distributionManagement>
@@ -74,11 +74,11 @@
     <repositories>
         <repository>
             <id>eficode-github-jiraManagerRest</id>
-            <url>https://github.com/eficode/JiraInstanceMangerRest/raw/pre_v1_tweaks/repository/</url>
+            <url>https://github.com/eficode/JiraInstanceMangerRest/raw/packages/repository/</url>
         </repository>
     </repositories>
     <build>
-        <sourceDirectory>${basedir}/src/main/groovy</sourceDirectory>
+        <!--sourceDirectory>${basedir}/src/main/groovy/</sourceDirectory-->
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -90,6 +90,7 @@
                         <phase>generate-sources</phase>
                         <goals>
                             <goal>jar-no-fork</goal>
+                            <goal>test-jar-no-fork</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -101,18 +102,31 @@
                 <executions>
                     <execution>
                         <goals>
-                            <goal>execute</goal>
+                            <goal>addSources</goal>
+                            <goal>addTestSources</goal>
+                            <goal>compile</goal>
+                            <goal>compileTests</goal>
                         </goals>
                     </execution>
                 </executions>
                 <dependencies>
                     <dependency>
-                        <groupId>org.apache.groovy</groupId>
+                        <groupId>org.codehaus.groovy</groupId>
                         <artifactId>groovy</artifactId>
-                        <version>4.0.2</version>
+                        <version>3.0.11</version>
                         <scope>runtime</scope>
                     </dependency>
                 </dependencies>
+                <!--configuration>
+                    <sources>
+                        <source>
+                            <directory>${project.basedir}/src/main/groovy</directory>
+                            <includes>
+                                <include>**/*.groovy</include>
+                            </includes>
+                        </source>
+                    </sources>
+                </configuration-->
 
             </plugin>
         </plugins>
