@@ -55,6 +55,7 @@ class NginxContainer implements Container{
                 h.portBindings = [(containerMainPort+"/tcp"): [new PortBinding("0.0.0.0", (containerMainPort))]]
                 h.mounts = this.mounts
             }
+            c.hostname = containerName
 
 
         }
@@ -68,5 +69,9 @@ class NginxContainer implements Container{
         return containerId
 
 
+    }
+
+    boolean runOnFirstStartup() {
+        return true
     }
 }

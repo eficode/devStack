@@ -4,13 +4,14 @@ import com.eficode.devstack.container.Container
 import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.remote.api.ContainerCreateRequest
 import de.gesellix.docker.remote.api.HostConfig
+import de.gesellix.docker.remote.api.NetworkingConfig
 import de.gesellix.docker.remote.api.PortBinding
 
-class JsmContainer implements Container{
+class JsmContainer implements Container {
 
     String containerName = "JSM"
     String containerMainPort = "8080"
-    ArrayList <String> customEnvVar = [] //Ex: ["key=value", "PATH=/user/local/sbin"]
+    ArrayList<String> customEnvVar = [] //Ex: ["key=value", "PATH=/user/local/sbin"]
     String containerImage = "atlassian/jira-servicemanagement"
     String containerImageTag = "latest"
     long jvmMaxRam = 6000
@@ -19,11 +20,11 @@ class JsmContainer implements Container{
 
     /**
      * Setup a secure connection to a remote docker
-     * @param dockerHost  ex: https://docker.domain.com:2376
+     * @param dockerHost ex: https://docker.domain.com:2376
      * @param dockerCertPath ex: src/test/resources/dockerCert
      */
     JsmContainer(String dockerHost, String dockerCertPath) {
-       assert setupSecureRemoteConnection(dockerHost, dockerCertPath) : "Error setting up secure remote docker connection"
+        assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
     }
 
 
@@ -38,30 +39,46 @@ class JsmContainer implements Container{
 
     }
 
-    String createJsmContainer(String containerName = this.containerName, String imageName = containerImage, String imageTag = containerImageTag, long jsmMaxRamMB = jvmMaxRam, String webPort = containerMainPort) {
+    String createJsmContainer(String jsmContainerName = containerName, String imageName = containerImage, String imageTag = containerImageTag, long jsmMaxRamMB = jvmMaxRam, String jsmPort = containerMainPort) {
 
-        assert dockerClient.ping().content as String == "OK", "Error Connecting to docker service"
+        assert ping(), "Error Connecting to docker engine"
 
 
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = imageName + ":" + imageTag
             c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m"] + customEnvVar
-            c.exposedPorts = [(webPort + "/tcp"): [:]]
-            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(webPort + "/tcp"): [new PortBinding("0.0.0.0", (webPort.toString()))]] }
+            c.exposedPorts = [(jsmPort + "/tcp"): [:]]
+            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(jsmPort + "/tcp"): [new PortBinding("0.0.0.0", (jsmPort))]] }
+            c.hostname = containerName.toLowerCase()
 
         }
 
 
-
         //EngineResponseContent response = dockerClient.run(containerCreateRequest, jsmContainerName)
-        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, containerName)
-        assert response.content.warnings.isEmpty(): "Error when creating $containerName container:" + response.content.warnings.join(",")
+        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, jsmContainerName)
+        assert response.content.warnings.isEmpty(): "Error when creating $jsmContainerName container:" + response.content.warnings.join(",")
 
         containerId = response.content.id
         return containerId
 
 
     }
+
+
+
+
+    boolean runOnFirstStartup() {
+
+        log.debug("\tCreating folders needed for running Spoc tests with ScriptRunner")
+        assert runBashCommandInContainer("mkdir  /opt/atlassian/jira/surefire-reports ; chown jira:jira  /opt/atlassian/jira/surefire-reports").empty
+        log.debug("\tUpdating apt and installing dependencies")
+        assert runBashCommandInContainer("apt update; apt install -y htop nano; echo \$?", 20).last() == "0"
+
+        return true
+
+
+    }
+
 
 }
