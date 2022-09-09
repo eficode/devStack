@@ -49,6 +49,7 @@ class BitbucketContainer implements Container{
             c.env = ["JVM_MAXIMUM_MEMORY=" + maxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((maxRamMB / 2) as String) + "m"]
             c.exposedPorts = [(mainPort + "/tcp"): [:]]
             c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(mainPort + "/tcp"): [new PortBinding("0.0.0.0", (mainPort.toString()))]] }
+            c.hostname = containerName
 
         }
 
@@ -62,6 +63,10 @@ class BitbucketContainer implements Container{
 
     }
 
+
+    boolean runOnFirstStartup() {
+        return true
+    }
 
 
 

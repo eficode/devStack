@@ -17,7 +17,8 @@ class JsmH2DeploymentTest extends Specification {
     String dockerCertPath = "resources/dockerCert"
 
     @Shared
-    String jiraBaseUrl = "http://192.168.0.1:8080"
+    //String jiraBaseUrl = "http://192.168.0.1:8080"
+    String jiraBaseUrl = "http://docker.domain.se:8080"
     //String jiraBaseUrl = "http://localhost:8080"
 
     @Shared

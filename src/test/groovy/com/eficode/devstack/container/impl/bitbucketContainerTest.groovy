@@ -30,7 +30,7 @@ class bitbucketContainerTest extends Specification {
     @Shared
     String dockerCertPath = "resources/dockerCert"
     @Shared
-    String bitbucketBaseUrl = "http://bitbucket.domain.se:7990/"
+    String bitbucketBaseUrl = "http://bitbucket.domain.se:7990"
 
 
     def setupSpec() {

@@ -79,10 +79,7 @@ class JsmH2Deployment implements Deployment{
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")
 
-        log.debug("\tCreating folders needed for running Spoc tests with ScriptRunner")
-        assert jsmContainer.runBashCommandInContainer("mkdir  /opt/atlassian/jira/surefire-reports ; chown jira:jira  /opt/atlassian/jira/surefire-reports").empty
-        log.debug("\tUpdating apt and installing dependencies")
-        jsmContainer.runBashCommandInContainer("apt update; apt install -y htop nano", 20)
+
 
         log.info("\tSetting up local H2 database")
         assert jiraRest.setupH2Database() : "Error setting up H2 database for JSM"

@@ -65,7 +65,7 @@
         <dependency>
             <groupId>com.eficode.atlassian</groupId>
             <artifactId>jirainstancemanger</artifactId>
-            <version>1.0.1-SNAPSHOT</version>
+            <version>1.0.4-SNAPSHOT</version>
         </dependency>
 
 
