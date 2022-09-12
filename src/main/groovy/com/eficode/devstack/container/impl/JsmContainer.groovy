@@ -36,7 +36,7 @@ class JsmContainer implements Container {
 
 
 
-    static String containerName = "JSM"
+    String containerName = "JSM"
     static String srcUrl = "https://bitbucket.org/atlassian-docker/docker-atlassian-jira.git"
     static File repoTargetDir = new File("jsm-repo")
     static String tarOutputPath = "./jsm-docker.tar"
@@ -60,8 +60,10 @@ class JsmContainer implements Container {
 
     }
 
-    static boolean isAppleSilicon(){
-        return  new SystemInfo().hardware.processor.processorIdentifier.name ==~ /.*Apple M1.*/
+    static boolean isAppleSilicon() {
+
+        return new SystemInfo().hardware.processor.processorIdentifier.name ==~ /.*Apple M1.*/
+
     }
 
 
