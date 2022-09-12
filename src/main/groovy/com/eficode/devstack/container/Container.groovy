@@ -118,6 +118,7 @@ trait Container {
         log.info("\tResolving container ID for:" + self.containerName)
 
 
+
         ArrayList<Map> content = dockerClient.ps().content
 
         Map container = content.find { it.Names.first() == "/" + self.containerName }
@@ -142,7 +143,7 @@ trait Container {
     }
 
     ContainerInspectResponse inspect() {
-        return dockerClient.inspectContainer(self.containerId).content
+        return self.containerId ? dockerClient.inspectContainer(self.containerId).content : null
     }
 
     boolean isRunning() {
@@ -156,7 +157,16 @@ trait Container {
      */
     boolean hasNeverBeenStarted() {
 
-        return inspect().state.status == ContainerState.Status.Created
+        ContainerState.Status status = inspect()?.state?.status
+
+        if (status == ContainerState.Status.Created ) {
+            return true //Created but not started
+        }else if (status == null) {
+            return true //Not even created
+        }else {
+            return false
+        }
+
     }
 
     String getIp() {
@@ -176,6 +186,7 @@ trait Container {
             } catch (ClientException ex) {
 
                 if (ex.response.message == "Not Found") {
+                    containerId = null
                     return true
                 }
             }

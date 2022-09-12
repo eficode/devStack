@@ -44,8 +44,10 @@ class ContainerTest extends Specification {
     }
 
 
+
     def testNetworking() {
 
+        //TODO continue this
 
         setup:
         String networkName = "spock-network"
