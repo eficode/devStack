@@ -61,6 +61,8 @@ class JsmH2DeploymentTest extends Specification {
     }
 
 
+
+
     DockerClientImpl resolveDockerClient() {
 
         if (this.dockerClient) {

@@ -11,7 +11,7 @@ class JsmContainer implements Container {
 
     String containerName = "JSM"
     String containerMainPort = "8080"
-    ArrayList<String> customEnvVar = [] //Ex: ["key=value", "PATH=/user/local/sbin"]
+    ArrayList<String> customEnvVar = []
     String containerImage = "atlassian/jira-servicemanagement"
     String containerImageTag = "latest"
     long jvmMaxRam = 6000
@@ -66,10 +66,26 @@ class JsmContainer implements Container {
     }
 
 
+    /**
+     * Set custom environmental variables. Must be set before creating container
+     * @param keyVar Ex: ["key=value", "PATH=/user/local/sbin"]
+     */
+    void setCustomEnvVar(ArrayList<String> keyVar) {
+
+        assert hasNeverBeenStarted(): "Error, cant set custom enviromental variables after creating container"
+
+        this.customEnvVar = keyVar
+    }
 
 
     boolean runOnFirstStartup() {
 
+        ArrayList<String> initialOut = runBashCommandInContainer("echo END")
+        initialOut.remove { "END" }
+        if (initialOut) {
+            log.warn("StdOut contains unexpected output on initial startup:")
+            initialOut.each { log.warn("\t" + it) }
+        }
         log.debug("\tCreating folders needed for running Spoc tests with ScriptRunner")
         assert runBashCommandInContainer("mkdir  /opt/atlassian/jira/surefire-reports ; chown jira:jira  /opt/atlassian/jira/surefire-reports").empty
         log.debug("\tUpdating apt and installing dependencies")
