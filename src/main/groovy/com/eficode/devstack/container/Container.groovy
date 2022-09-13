@@ -7,6 +7,7 @@ import de.gesellix.docker.engine.EngineResponse
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
+import de.gesellix.docker.remote.api.client.BuildInfoExtensionsKt
 import de.gesellix.docker.remote.api.core.ClientException
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
@@ -18,12 +19,24 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.io.FileUtils
 import org.codehaus.groovy.runtime.ResourceGroovyMethods
+import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.TransportConfigCallback
+import org.eclipse.jgit.api.errors.GitAPIException
+import org.eclipse.jgit.api.errors.InvalidRemoteException
+import org.eclipse.jgit.api.errors.TransportException
+import org.eclipse.jgit.lib.Repository
+
+import java.nio.file.FileAlreadyExistsException
+import java.util.concurrent.CountDownLatch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+
+import de.gesellix.docker.remote.api.BuildInfo
+import de.gesellix.docker.remote.api.core.StreamCallback
 
 trait Container {
 
@@ -35,11 +48,11 @@ trait Container {
     ArrayList<Mount> mounts = []
 
 
-    void prepareBindMount(String sourceAbs, String target, boolean readOnly = true){
-        assert !isCreated() : "Bind mounts cant be prepared for already created container"
+    void prepareBindMount(String sourceAbs, String target, boolean readOnly = true) {
+        assert !isCreated(): "Bind mounts cant be prepared for already created container"
 
         this.mounts.add(
-                new Mount().tap{m ->
+                new Mount().tap { m ->
                     m.source = sourceAbs
                     m.target = target
                     m.readOnly = readOnly
@@ -49,10 +62,68 @@ trait Container {
     }
 
 
-
-
     abstract String createContainer()
 
+
+    /**
+     * Clones a git repository without authenticating, including all branches and sub-modules
+     * @param srcUrl Url of the repository
+     * @param dir An empty directory to clone to
+     * @return a Repository object
+     * @throws InvalidRemoteException* @throws TransportException* @throws GitAPIException
+     */
+    static Repository cloneRepository(String srcUrl, String dir) throws InvalidRemoteException, TransportException, GitAPIException, FileAlreadyExistsException {
+        log.info("Cloning Remote Repository from " + srcUrl + " to " + dir)
+
+        File targetDir = new File(dir)
+        if (targetDir.exists() && !targetDir.listFiles().toList().empty) {
+            throw new FileAlreadyExistsException("Cant clone repository to non empty directory")
+        }
+
+
+        Git result = Git.cloneRepository()
+                .setBare(false)
+                .setCloneAllBranches(true)
+                .setCloneSubmodules(true)
+                .setURI(srcUrl)
+                .setDirectory(targetDir)
+                .call()
+        return result.getRepository();
+    }
+
+    void buildImage() {
+
+        dockerClient.search()
+
+    }
+
+/*
+
+    def buildDockerImage(Duration duration, String tag, String JIRA_VERSION, String artifact_name, InputStream tarFile ) {
+        log.info("DOCKER BUILD INITIATED!!!!")
+        ImageCallback callback = new ImageCallback()
+        dockerClient.manageImage.build(callback, duration, "", tag, false, false, "", false, '{"JIRA_VERSION":"$JIRA_VERSION, "ARTEFACT_NAME":"$artifact_name"}', "", "", "", tarFile)
+        log.info("BUILD COMMAND is RAN")
+        while (!callback.onFinished()) {
+            sleep(100)
+
+        }
+        return callback
+    }
+
+    String getImageId(ImageCallback<BuildInfo> imageCallback){
+        def imageId = BuildInfoExtensionsKt.getImageId(imageCallback.infos)
+        log.info("IMAGE ID: "+imageId)
+        return imageId
+    }
+
+    String getImageName(ImageCallback<BuildInfo> imageCallback){
+        String imageStream=imageCallback.infos["stream"].last().toString()
+        String m1_image_name=imageStream.replace("Successfully tagged ", '').trim()
+        log.info("Image Name: "+m1_image_name)
+        return m1_image_name
+    }
+*/
 
     /**
      * Replaced the default docker connection (local) with a remote, secure one
@@ -131,7 +202,7 @@ trait Container {
         return inspect().state.running
     }
 
-    String getIp(){
+    String getIp() {
         inspect().networkSettings.ipAddress
     }
 
@@ -152,7 +223,7 @@ trait Container {
                 }
             }
             return false
-        }else {
+        } else {
             return false
         }
 
@@ -307,6 +378,23 @@ trait Container {
         }
     }
 
+    static class BuildCallBack<BuildInfo> implements StreamCallback<BuildInfo> {
+
+        List<BuildInfo> info = []
+        boolean finished = false
+
+        @Override
+        void onNext(BuildInfo element) {
+            info.add(element)
+        }
+
+        @Override
+        void onFinished() {
+            finished = true
+        }
+
+    }
+
 
     ArrayList<String> runBashCommandInContainer(String command, long timeoutS = 10) {
 
@@ -319,10 +407,8 @@ trait Container {
         }
 
 
-
         ContainerCallback callBack = new ContainerCallback()
         EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, ["/bin/bash", "-c", command], callBack, Duration.ofSeconds(timeoutS))
-
 
 
         return callBack.output
