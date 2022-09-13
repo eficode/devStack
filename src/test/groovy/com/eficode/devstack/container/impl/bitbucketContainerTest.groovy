@@ -1,63 +1,80 @@
-package com.eficode.devstack.deployment.impl
+package com.eficode.devstack.container.impl
 
+import com.eficode.atlassian.bitbucketInstanceManager.BitbucketInstanceManagerRest
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
+import de.gesellix.docker.remote.api.ContainerInspectResponse
+import de.gesellix.docker.remote.api.ContainerState
+import de.gesellix.docker.remote.api.core.ClientException
 import org.apache.commons.io.FileUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
-class JsmH2DeploymentTest extends Specification {
+import java.nio.file.Files
+import java.nio.file.Path
+
+class bitbucketContainerTest extends Specification {
+
+    @Shared
+    static Logger log = LoggerFactory.getLogger(bitbucketContainerTest.class)
+
+    @Shared
+    DockerClientImpl dockerClient
+
 
     @Shared
     String dockerRemoteHost = "https://docker.domain.se:2376"
     @Shared
     String dockerCertPath = "resources/dockerCert"
-
     @Shared
-    //String jiraBaseUrl = "http://192.168.0.1:8080"
-    String jiraBaseUrl = "http://docker.domain.se:8080"
-    //String jiraBaseUrl = "http://localhost:8080"
+    String bitbucketBaseUrl = "http://bitbucket.domain.se:7990"
 
-    @Shared
-    DockerClientImpl dockerClient
-
-    @Shared
-    static Logger log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
-
-    @Shared
-    File projectRoot = new File(".")
 
     def setupSpec() {
-
-
         dockerClient = resolveDockerClient()
-        dockerClient.stop("JSM")
-        dockerClient.rm("JSM")
+        dockerClient.stop("Bitbucket")
+        dockerClient.rm("Bitbucket")
     }
 
-    def "test setupDeployment"() {
+
+
+    def "sandbox"() {
+
         setup:
-        JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl)
-        jsmDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
-        //jsmDep.jsmContainer.containerImageTag = "4.22.2"
-        jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
-        jsmDep.appsToInstall = [
-                "https://marketplace.atlassian.com/download/apps/6820/version/1005740"  : new File(projectRoot.path + "/resources/jira/licenses/scriptrunnerForJira.license").text,
-                "https://marketplace.atlassian.com/download/apps/6572/version/1311472"  : new File(projectRoot.path + "/resources/jira/licenses/tempoTimeSheets.license").text,
-                "https://marketplace.atlassian.com/download/apps/1211542/version/302030": ""
-        ]
+        dockerClient.manageImage.build()
+    }
+
+    def "test setupContainer"() {
+        setup:
+        log.info("Testing setup of BB container using trait method")
+        BitbucketContainer bbc = new BitbucketContainer(dockerRemoteHost, dockerCertPath)
+        BitbucketInstanceManagerRest bbr = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
+
+        bbc.jvmMaxRam = 4096
 
         when:
-        boolean setupSuccess = jsmDep.setupDeployment()
+        String containerId = bbc.createContainer()
+        ContainerInspectResponse containerInspect =  dockerClient.inspectContainer(containerId).content
+
+
         then:
-        setupSuccess
+        assert containerInspect.name ==  "/" + bbc.containerName : "BB was not given the expected name"
+        assert containerInspect.state.status == ContainerState.Status.Created : "BB Container status is of unexpected value"
+        assert containerInspect.state.running == false : "BB Container was started even though it should only have been created"
+        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.find {it == "atlassian/bitbucket:latest"} : "BB container was created with incorrect Docker image"
+        assert containerInspect.hostConfig.portBindings.containsKey("7990/tcp") : "BB Container port binding was not setup correctly"
+        log.info("\tBB Container was setup correctly")
 
-        //cleanup:
+        expect:
+        bbc.startContainer()
+        bbr.setApplicationProperties(new File("resources/bitbucket/licenses/bitbucketLicense").text)
+        bbr.status == "RUNNING"
 
-        //jsmDep.containers.each {it.stopAndRemoveContainer()}
+
+
     }
 
 

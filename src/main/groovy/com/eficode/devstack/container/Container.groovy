@@ -1,13 +1,17 @@
 package com.eficode.devstack.container
 
 import de.gesellix.docker.client.DockerClientImpl
+import de.gesellix.docker.client.network.ManageNetworkClient
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
 import de.gesellix.docker.remote.api.ContainerInspectResponse
+import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
 import de.gesellix.docker.remote.api.client.BuildInfoExtensionsKt
+import de.gesellix.docker.remote.api.Network
+import de.gesellix.docker.remote.api.NetworkCreateRequest
 import de.gesellix.docker.remote.api.core.ClientException
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
@@ -42,17 +46,18 @@ trait Container {
 
     static Logger log = LoggerFactory.getLogger(Container.class)
     static DockerClientImpl dockerClient = new DockerClientImpl()
+    static ManageNetworkClient networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
     abstract String containerName
     abstract String containerMainPort
     String containerId
     ArrayList<Mount> mounts = []
 
 
-    void prepareBindMount(String sourceAbs, String target, boolean readOnly = true) {
-        assert !isCreated(): "Bind mounts cant be prepared for already created container"
+    void prepareBindMount(String sourceAbs, String target, boolean readOnly = true){
+        assert !isCreated() : "Bind mounts cant be prepared for already created container"
 
         this.mounts.add(
-                new Mount().tap { m ->
+                new Mount().tap{m ->
                     m.source = sourceAbs
                     m.target = target
                     m.readOnly = readOnly
@@ -63,6 +68,8 @@ trait Container {
 
 
     abstract String createContainer()
+
+    abstract boolean runOnFirstStartup()
 
 
     /**
@@ -138,9 +145,15 @@ trait Container {
         dockerEnv.setTlsVerify("1")
         dockerConfig.apply(dockerEnv)
         dockerClient = new DockerClientImpl(dockerConfig)
+        networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
+
+
+
         return ping()
 
     }
+
+
 
 
     boolean ping() {
@@ -189,17 +202,43 @@ trait Container {
 
     boolean startContainer() {
 
+
+        boolean firstStartup = hasNeverBeenStarted()
         dockerClient.startContainer(self.containerId)
+
+        if (firstStartup) {
+            assert runOnFirstStartup(): "Error running initial startup commands inside of the container"
+        }
+
 
         return isRunning()
     }
 
     ContainerInspectResponse inspect() {
-        return dockerClient.inspectContainer(self.containerId).content
+        return self.containerId ? dockerClient.inspectContainer(self.containerId).content : null
     }
 
     boolean isRunning() {
         return inspect().state.running
+    }
+
+
+    /**
+     * Returns true if the container has been created but never started
+     * @return
+     */
+    boolean hasNeverBeenStarted() {
+
+        ContainerState.Status status = inspect()?.state?.status
+
+        if (status == ContainerState.Status.Created ) {
+            return true //Created but not started
+        }else if (status == null) {
+            return true //Not even created
+        }else {
+            return false
+        }
+
     }
 
     String getIp() {
@@ -219,6 +258,7 @@ trait Container {
             } catch (ClientException ex) {
 
                 if (ex.response.message == "Not Found") {
+                    containerId = null
                     return true
                 }
             }
@@ -328,6 +368,81 @@ trait Container {
 
         return outFiles
     }
+
+
+    /**
+     * Creates a network of the type bridge, or returns an existing one if one with the same name exists
+     * @param networkName name of the network
+     * @return the created/existing network
+     */
+    static Network createBridgeNetwork(def networkName) {
+
+        log.info("Creating network:" + networkName)
+
+
+
+        Network existingNetwork = getBridgeNetwork(networkName)
+
+        if (existingNetwork) {
+            log.info("\tNetwork already exists (${existingNetwork.id}), returning that.")
+            return existingNetwork
+        }
+
+
+        NetworkCreateRequest createRequest = new NetworkCreateRequest(networkName, false, "bridge", null, null, null, null, null, [:], null)
+
+
+        String networkId = networkClient.createNetwork(createRequest).content.id
+        assert networkId: "Error creating network:" + networkName
+        log.info("\tCreated:" + networkId)
+
+        Network newNetwork = networkClient.networks([filters: [id: [networkId]]])?.content?.first()
+        assert newNetwork: "Error finding newly created network $networkName with id: " + networkId
+
+        return newNetwork
+    }
+
+
+    static Boolean removeBridgeNetwork(String networkId) {
+
+
+        log.info("Removing bridge network:" + networkId)
+
+        Network network = networkClient.networks().content.find { it.id == networkId && it.driver == "bridge" }
+        assert network : "Could not find a bridge network with ID:" + networkId
+        networkClient.rmNetwork(network.id)
+
+        return networkClient.networks([filters: [id: [network.id]]])?.content?.isEmpty()
+
+    }
+
+    /**
+     * Gets a bridge network based on name, note there might be multiple networks with the same name
+     * @param networkName
+     * @return null or one of the matching networks
+     */
+    static Network getBridgeNetwork(String networkName) {
+
+
+        Network network = networkClient.networks().content.find { it.name == networkName && it.driver == "bridge" }
+
+        return network
+    }
+
+    boolean addContainerToNetwork(String networkId) {
+
+
+        networkClient.connectNetwork(networkId, containerId)
+
+
+        def here = networkClient.inspectNetwork(networkId).content.containers
+
+        return false
+
+
+    }
+
+
 
 
     /**

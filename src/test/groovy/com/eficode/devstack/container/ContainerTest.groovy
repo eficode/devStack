@@ -1,6 +1,8 @@
 package com.eficode.devstack.container
 
 import com.eficode.devstack.container.impl.NginxContainer
+import com.eficode.devstack.container.impl.AlpineContainer
+import de.gesellix.docker.remote.api.Network
 import groovy.io.FileType
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.DirectoryFileFilter
@@ -28,7 +30,14 @@ class ContainerTest extends Specification {
         String containerName = "spoc"
         String containerMainPort = "666"
 
-        String createContainer() {}
+        String createContainer() {
+            return ""
+        }
+
+        @Override
+        boolean runOnFirstStartup() {
+            return true
+        }
     }
 
 
@@ -74,6 +83,54 @@ class ContainerTest extends Specification {
 
         cleanup:
         assert gitOutDir.deleteDir() : "Error deleting gitOut dir:" + gitOutDir.absolutePath
+
+
+    }
+
+
+
+    def testNetworking() {
+
+        //TODO continue this
+
+        setup:
+        String networkName = "spock-network"
+        log.info("Testing CRUD of networks")
+        AlpineContainer alpine = new AlpineContainer(dockerHost, dockerCertPath)
+        alpine.containerName = "spock-alpine"
+        alpine.stopAndRemoveContainer()
+        //alpine.createContainer()
+
+        log.info("\tCreated SPOCK container:" + alpine.id)
+
+        Network spocNetwork = AlpineContainer.getBridgeNetwork()
+        if (spocNetwork) {
+
+            assert AlpineContainer.removeBridgeNetwork(spocNetwork.id) : "Error removing pre-existing SPOCK network"
+            log.info("\tRemoved pre-existing spoc-network")
+        }
+
+        when:
+        log.info("\tTesting removing network that should not exist")
+        AlpineContainer.removeBridgeNetwork(networkName)
+        then:
+        AssertionError ex = thrown(AssertionError)
+        ex.message.startsWith("Could not find")
+        log.info("\t\tSuccess, error was thrown:" + ex.message)
+
+
+        when:
+        Network newNetwork = AlpineContainer.createBridgeNetwork(networkName)
+        log.info("\tCreated spock network:" + newNetwork?.id)
+
+        then:
+        newNetwork != null
+
+
+
+        //alpine.deleteBridgeNetwork("hejhej")
+        //assert AlpineContainer.deleteBridgeNetwork("host") == null : "Error the spock network already exists"
+
 
 
     }
