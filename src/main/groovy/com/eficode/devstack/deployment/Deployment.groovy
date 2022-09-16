@@ -17,8 +17,6 @@ trait Deployment {
 
         log.info("Setting up secure connection to docker engine")
         assert getContainers() != null && !getContainers().empty: "Deployment has no containers defined"
-        //assert getContainers().any{! it.ping()} : "Connection has already been established."
-        //assert getContainers().created.each {!it} : "Cant setup secure connection when containers have already been created in docker engine"
 
 
         getContainers().each {

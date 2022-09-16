@@ -7,10 +7,15 @@ import com.eficode.devstack.container.impl.BitbucketContainer
 import com.eficode.devstack.container.impl.JsmContainer
 import com.eficode.devstack.deployment.Deployment
 
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+
 class JsmAndBitbucketH2Deployment implements Deployment{
 
     String friendlyName = "JIRA and Bitbucket H2 Deployment"
-    ArrayList<Container> containers = []
+    ArrayList<Deployment> subDeployments = []
 
     Map<String, String> jiraAppsToInstall = [:]
     String jiraLicense
@@ -19,6 +24,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
 
     String bitbucketBaseUrl
     BitbucketInstanceManagerRest bitbucketRest
+    String bitbucketLicense
 
     JsmAndBitbucketH2Deployment(String jiraBaseUrl, String bitbucketBaseUrl) {
 
@@ -28,20 +34,36 @@ class JsmAndBitbucketH2Deployment implements Deployment{
         this.bitbucketBaseUrl = bitbucketBaseUrl
         this.bitbucketRest = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
 
-        log.info("jira:" + this.jiraRest.baseUrl)
-        log.info("bitbucket:" + this.bitbucketRest.baseUrl)
-        this.containers = [new JsmContainer(), new BitbucketContainer()]
+
+        this.subDeployments = [new JsmH2Deployment(jiraBaseUrl), new BitbucketH2Deployment(bitbucketBaseUrl)]
 
 
 
+
+    }
+
+    ArrayList<Container>getContainers() {
+        return [jsmContainer, bitbucketContainer]
+    }
+
+    void setContainers(ArrayList<Container> containers) {
+        this.containers = containers
+    }
+
+    JsmH2Deployment getJsmH2Deployment() {
+        return subDeployments.find{it instanceof JsmH2Deployment} as JsmH2Deployment
     }
 
     JsmContainer getJsmContainer() {
-        return containers.find{it instanceof JsmContainer} as JsmContainer
+        return jsmH2Deployment.find {it instanceof JsmContainer} as JsmContainer
+    }
+
+    BitbucketH2Deployment getBitbucketH2Deployment() {
+        return subDeployments.find{it instanceof BitbucketH2Deployment} as BitbucketH2Deployment
     }
 
     BitbucketContainer getBitbucketContainer() {
-        return containers.find {it instanceof BitbucketContainer} as BitbucketContainer
+        return bitbucketH2Deployment.find {it instanceof BitbucketContainer} as BitbucketContainer
     }
 
     void setJiraLicense(String licenseText) {
@@ -58,6 +80,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
      * @param appsAndLicenses key = App url (from marketplace), value = license string (optional)
      * @return true if no apps where installed, or apps where installed successfully
      */
+    /*
     boolean installJiraApps(Map<String,String> appsAndLicenses = jiraAppsToInstall) {
 
         if (appsAndLicenses) {
@@ -71,32 +94,73 @@ class JsmAndBitbucketH2Deployment implements Deployment{
 
     }
 
+     */
+
+
+
+    private class SetupDeploymentTask implements Callable<Boolean> {
+
+        Deployment deployment
+
+        SetupDeploymentTask(Deployment deployment) {
+            this.deployment = deployment
+        }
+
+        @Override
+        Boolean call() throws Exception {
+            this.deployment.setupDeployment()
+        }
+    }
+
     boolean setupDeployment() {
 
         log.info("Setting up deployment:" + friendlyName)
 
         assert jiraLicense : "Error no Jira License has been setup"
+        assert bitbucketLicense : "Error no Bitbucket License has been setup"
 
-        jsmContainer.createContainer()
-        log.info("\tCreated jsm container:" + jsmContainer.id)
-        assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
-        log.info("\tStarted JSM container")
+        jsmH2Deployment.setJiraLicense(new File(jiraLicense))
+        bitbucketH2Deployment.setBitbucketLicence(new File(bitbucketLicense))
 
-        log.info("\tSetting up local H2 database")
-        assert jiraRest.setupH2Database() : "Error setting up H2 database for JSM"
-        log.info("\t\tDatabase setup successfully")
-        log.info("\tSetting up application properties and Jira license")
-        assert jiraRest.setApplicationProperties(jiraLicense, "JIRA", jiraBaseUrl)
-        log.info("\t\tLicense and properties setup successfully")
 
-        if(jiraAppsToInstall) {
-            installApps()
+        ExecutorService threadPool = Executors.newFixedThreadPool(2)
+        Future jsmFuture = threadPool.submit(new SetupDeploymentTask(jsmH2Deployment))
+        Future bitbucketFuture = threadPool.submit(new SetupDeploymentTask(bitbucketH2Deployment))
+        threadPool.shutdown()
+
+        while(!jsmFuture.done || !bitbucketFuture.done) {
+            log.info("Waiting for deployments to finish")
+            log.info("\tJSM Finished:" + jsmFuture.done)
+            log.info("\tBitbucket Finished:" + bitbucketFuture.done)
+
+            if(bitbucketFuture.done) {
+                log.info("\tBitbucket deployment finished successfully:" + bitbucketFuture.get())
+            }
+
+            if(jsmFuture.done) {
+                log.info("\tJSM deployment finished successfully:" + jsmFuture.get())
+            }
+
+            sleep(5000)
+        }
+        if(bitbucketFuture.done) {
+            log.info("\tBitbucket deployment finished successfully:" + bitbucketFuture.get())
         }
 
+        if(jsmFuture.done) {
+            log.info("\tJSM deployment finished successfully:" + jsmFuture.get())
+        }
 
+        return jsmFuture.get() && bitbucketFuture.get()
 
-        return false
+    }
 
+    @Override
+    void setupSecureDockerConnection(String host, String certPath) {
+
+        subDeployments.each {deployment ->
+            deployment.setupSecureDockerConnection(host, certPath)
+        }
     }
 
     /**
@@ -116,6 +180,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
         return true
 
     }
+
 
 
 }
