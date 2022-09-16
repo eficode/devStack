@@ -12,7 +12,7 @@ class BitbucketContainer implements Container{
     String containerMainPort = "7990"
     String containerImage = "atlassian/bitbucket"
     String containerImageTag = "latest"
-    long jvmMaxRam = 2048
+    long jvmMaxRam = 4096
 
 
     /**

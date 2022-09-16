@@ -1,6 +1,6 @@
 package com.eficode.devstack.deployment.impl
 
-import com.eficode.atlassian.jiraInstanceManger.JiraInstanceMangerRest
+import com.eficode.atlassian.jiraInstanceManager.JiraInstanceManagerRest
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.JsmContainer
 import com.eficode.devstack.deployment.Deployment
@@ -8,7 +8,7 @@ import com.eficode.devstack.deployment.Deployment
 class JsmH2Deployment implements Deployment{
 
     String friendlyName = "JIRA H2 Deployment"
-    JiraInstanceMangerRest jiraRest
+    JiraInstanceManagerRest jiraRest
     ArrayList<Container> containers = []
     Map<String,String> appsToInstall = [:]
     String jiraLicense
@@ -17,7 +17,7 @@ class JsmH2Deployment implements Deployment{
 
     JsmH2Deployment(String jiraBaseUrl) {
         this.jiraBaseUrl = jiraBaseUrl
-        this.jiraRest = new JiraInstanceMangerRest(jiraBaseUrl)
+        this.jiraRest = new JiraInstanceManagerRest(jiraBaseUrl)
         this.containers = [new JsmContainer()]
     }
 
