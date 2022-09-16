@@ -30,6 +30,7 @@ trait Deployment {
 
 
     boolean startDeployment() {
+
         log.info("Starting deployment: " + this.friendlyName)
 
         this.containers.each { container ->
@@ -46,7 +47,7 @@ trait Deployment {
         log.info("Stopping deployment: " + this.getFriendlyName())
 
 
-        getContainers().each { container ->
+        this.getContainers().each { container ->
             log.debug("\tStopping container:" + container.containerName)
             assert container.stopContainer(): "Error stopping container:" + container.containerId
         }

@@ -147,7 +147,7 @@ trait Container {
     }
 
     boolean isRunning() {
-        return inspect().state.running
+        return inspect()?.state?.running
     }
 
 
@@ -200,7 +200,7 @@ trait Container {
 
     boolean stopContainer() {
         log.info("Stopping container:" + self.containerId)
-        dockerClient.stop(self.containerId, 240000)
+        running ? dockerClient.stop(self.containerId, 240000) : ""
         if (running) {
             log.warn("\tFailed to stop container" + self.containerId)
             return false
