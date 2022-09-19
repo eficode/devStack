@@ -12,6 +12,7 @@ class AlpineContainer implements Container {
     String containerMainPort = null
     String containerImage = "alpine"
     String containerImageTag = "latest"
+    String defaultShell = "/bin/sh"
 
 
     AlpineContainer() {}
