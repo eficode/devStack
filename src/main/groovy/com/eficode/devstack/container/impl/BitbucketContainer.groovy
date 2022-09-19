@@ -38,6 +38,16 @@ class BitbucketContainer implements Container{
 
     }
 
+    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
+
+        if (cmd || entrypoint) {
+            throw new InputMismatchException("cmd and entrypoint cant be supplied to ${BitbucketContainer.simpleName}")
+        }
+
+        return createContainer()
+
+    }
+
     String createBbContainer(String containerName = this.containerName, String imageName = containerImage, String imageTag = containerImageTag, long maxRamMB = jvmMaxRam, String mainPort = containerMainPort) {
 
         assert dockerClient.ping().content as String == "OK", "Error Connecting to docker service"

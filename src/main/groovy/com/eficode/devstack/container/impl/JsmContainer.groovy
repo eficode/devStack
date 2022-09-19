@@ -39,6 +39,16 @@ class JsmContainer implements Container {
 
     }
 
+    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
+
+        if (cmd || entrypoint) {
+            throw new InputMismatchException("cmd and entrypoint cant be supplied to ${JsmContainer.simpleName}")
+        }
+
+        return createContainer()
+
+    }
+
     String createJsmContainer(String jsmContainerName = containerName, String imageName = containerImage, String imageTag = containerImageTag, long jsmMaxRamMB = jvmMaxRam, String jsmPort = containerMainPort) {
 
         assert ping(), "Error Connecting to docker engine"
