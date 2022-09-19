@@ -75,6 +75,9 @@ class BitbucketContainer implements Container{
 
 
     boolean runOnFirstStartup() {
+        log.debug("\tUpdating apt and installing dependencies")
+        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping; echo \$?", 20).last() == "0"
+
         return true
     }
 

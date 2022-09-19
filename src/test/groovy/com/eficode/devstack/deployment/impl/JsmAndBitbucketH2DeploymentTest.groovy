@@ -1,5 +1,6 @@
 package com.eficode.devstack.deployment.impl
 
+import com.eficode.devstack.container.impl.JsmContainer
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
@@ -22,6 +23,12 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
     @Shared
     String bitbucketBaseUrl = "http://bitbucket.domain.se:7990"
 
+    @Shared
+    String jiraDomain = JsmContainer.extractDomainFromUrl(jiraBaseUrl)
+
+    @Shared
+    String bitbucketDomain = JsmContainer.extractDomainFromUrl(bitbucketBaseUrl)
+
 
     @Shared
     DockerClientImpl dockerClient
@@ -42,10 +49,10 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
         assert jsmLicenseFile.text.length() > 10 : "Jira license file does not appear valid"
         assert bitbucketLicenseFile.text.length() > 10 : "Bitbucket license file does not appear valid"
         dockerClient = resolveDockerClient()
-        dockerClient.stop("JSM")
-        dockerClient.rm("JSM")
-        dockerClient.stop("Bitbucket")
-        dockerClient.rm("Bitbucket")
+        dockerClient.stop(jiraDomain, 1)
+        dockerClient.rm(jiraDomain)
+        dockerClient.stop(bitbucketDomain, 1)
+        dockerClient.rm(bitbucketDomain)
     }
 
 
@@ -57,11 +64,11 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
         jsmAndBb.bitbucketLicense = bitbucketLicenseFile
         jsmAndBb.jiraLicense = jsmLicenseFile
 
-        when:
-        boolean setupSuccess = jsmAndBb.setupDeployment()
 
-        then:
-        setupSuccess
+        expect:
+        jsmAndBb.setupDeployment()
+        jsmAndBb.jsmContainer.runBashCommandInContainer("ping -c 1 ${bitbucketDomain}").any {it.contains("0% packet loss")}
+        jsmAndBb.bitbucketContainer.runBashCommandInContainer("ping -c 1 ${jiraDomain}").any {it.contains("0% packet loss")}
     }
 
 
