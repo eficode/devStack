@@ -25,8 +25,16 @@ class AlpineContainer implements Container {
         assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
     }
 
+    /**
+     * Will create an Alpine Container that will sleep indefinitely
+     * @return
+     */
+    String createSleepyContainer(){
+        return createContainer(["sleep", "infinity"], [])
+    }
 
-    String createContainer() {
+
+    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
 
         assert ping(): "Error connecting to docker engine"
 
@@ -38,6 +46,14 @@ class AlpineContainer implements Container {
 
         }
 
+        if (cmd.size()) {
+            containerCreateRequest.cmd = cmd
+        }
+
+        if (entrypoint.size()) {
+            containerCreateRequest.entrypoint = entrypoint
+        }
+
         EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, containerName)
         assert response.content.warnings.isEmpty(): "Error when creating $containerName container:" + response.content.warnings.join(",")
 
@@ -46,10 +62,13 @@ class AlpineContainer implements Container {
 
     }
 
+    String createContainer() {
+        return createContainer([], [])
+    }
+
+
 
     boolean runOnFirstStartup() {
-        log.debug("\tUpdating apt and installing dependencies")
-        assert runBashCommandInContainer("apt update; apt install -y htop nano; echo \$?", 20).last() == "0"
 
         return true
     }

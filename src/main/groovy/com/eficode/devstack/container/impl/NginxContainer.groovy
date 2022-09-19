@@ -31,6 +31,16 @@ class NginxContainer implements Container{
         return containerId
     }
 
+    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
+
+        if (cmd || entrypoint) {
+            throw new InputMismatchException("cmd and entrypoint cant be supplied to ${NginxContainer.simpleName}")
+        }
+
+        return createContainer()
+
+    }
+
 
     /**
      * Bind local dir to nginx default root dir /usr/share/nginx/html
