@@ -60,14 +60,14 @@ class ContainerTest extends Specification {
         alpine1.containerName = "spock-alpine1"
 
         if (alpine1.created) {
-            assert alpine1.stopAndRemoveContainer()
+            assert alpine1.stopAndRemoveContainer(0)
         }
         alpine1.createSleepyContainer()
 
         AlpineContainer alpine2 = new AlpineContainer(dockerHost, dockerCertPath)
         alpine2.containerName = "spock-alpine2"
         if (alpine2.created) {
-            assert alpine2.stopAndRemoveContainer()
+            assert alpine2.stopAndRemoveContainer(0)
         }
         alpine2.createSleepyContainer()
 
@@ -146,19 +146,19 @@ class ContainerTest extends Specification {
         ex2.message.contains("Network is not valid")
 
 
-        when:
-        log.info("HERE")
+        when: "Starting both containers in the same network"
         alpine1.setContainerNetworks([spockNetwork])
-        //alpine2.setContainerNetworks([spockNetwork])
+        alpine2.setContainerNetworks([spockNetwork])
         alpine1.startContainer()
-        //alpine2.startContainer()
+        alpine2.startContainer()
 
-        then:
-        true
+        then: "They should both be able to ping each other using containerName and ip"
+        alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.containerName).any {it.contains("0% packet loss")}
+        alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.containerName).any {it.contains("0% packet loss")}
+        alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.ips.first()).any {it.contains("0% packet loss")}
+        alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.ips.first()).any {it.contains("0% packet loss")}
+        alpine1.runBashCommandInContainer("ping -c 1 foobar").any {it.contains("bad address")}
 
-
-        //alpine.deleteBridgeNetwork("hejhej")
-        //assert alpine.deleteBridgeNetwork("host") == null : "Error the spock network already exists"
 
 
     }

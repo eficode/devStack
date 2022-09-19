@@ -37,6 +37,7 @@ trait Container {
     ManageNetworkClient networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
     abstract String containerName
     abstract String containerMainPort
+    String defaultShell = "/bin/bash"
     String containerId
     ArrayList<Mount> mounts = []
 
@@ -174,8 +175,18 @@ trait Container {
 
     }
 
-    String getIp() {
-        inspectContainer().networkSettings.ipAddress
+    ArrayList<String> getIps() {
+        ContainerInspectResponse inspectResponse = inspectContainer()
+        ArrayList<String> ips = inspectResponse.networkSettings.networks.values().ipAddress
+
+        if (inspectResponse.networkSettings.ipAddress != null ) {
+            ips.add(inspectResponse.networkSettings.ipAddress)
+            ips.unique(true)
+        }
+
+
+
+        return ips
     }
 
     ContainerState.Status status() {
@@ -560,7 +571,7 @@ trait Container {
 
 
         ContainerCallback callBack = new ContainerCallback()
-        EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, ["/bin/bash", "-c", command], callBack, Duration.ofSeconds(timeoutS))
+        EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, [self.defaultShell, "-c", command], callBack, Duration.ofSeconds(timeoutS))
 
 
         return callBack.output
