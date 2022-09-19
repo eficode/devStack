@@ -19,6 +19,7 @@ class JsmH2Deployment implements Deployment{
         this.jiraBaseUrl = jiraBaseUrl
         this.jiraRest = new JiraInstanceManagerRest(jiraBaseUrl)
         this.containers = [new JsmContainer()]
+        getJsmContainer().containerName = JsmContainer.extractDomainFromUrl(jiraBaseUrl)
     }
 
     JsmContainer getJsmContainer() {
@@ -76,6 +77,10 @@ class JsmH2Deployment implements Deployment{
 
         jsmContainer.createContainer()
         log.info("\tCreated jsm container:" + jsmContainer.id)
+
+        log.info("\tConfiguring container to join network:" + this.deploymentNetworkName)
+        jsmContainer.containerNetworkName = this.deploymentNetworkName
+
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")
 

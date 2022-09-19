@@ -19,6 +19,7 @@ class BitbucketH2Deployment implements Deployment{
         this.bitbucketBaseUrl = bitbucketBaseUrl
         this.bitbucketRest = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
         this.containers = [new BitbucketContainer()]
+        bitbucketContainer.containerName = BitbucketContainer.extractDomainFromUrl(bitbucketBaseUrl)
 
     }
 
@@ -47,6 +48,10 @@ class BitbucketH2Deployment implements Deployment{
 
         bitbucketContainer.createContainer()
         log.info("\tCreated Bitbucket container:" + bitbucketContainer.id)
+
+        log.info("\tConfiguring container to join network:" + this.deploymentNetworkName)
+        bitbucketContainer.containerNetworkName = this.deploymentNetworkName
+
         assert bitbucketContainer.startContainer() : "Error starting Bitbucket container:" + bitbucketContainer.id
         log.info("\tStarted Bitbucket container")
 

@@ -37,6 +37,7 @@ trait Container {
     ManageNetworkClient networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
     abstract String containerName
     abstract String containerMainPort
+    String containerNetworkName = "bridge"
     String defaultShell = "/bin/bash"
     String containerId
     ArrayList<Mount> mounts = []
@@ -54,6 +55,8 @@ trait Container {
                 }
         )
     }
+
+
 
 
     abstract String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint)
@@ -131,9 +134,18 @@ trait Container {
     boolean startContainer() {
 
 
-        log.info("Starting container: ${self.containerName} (${self.containerId})")
+        log.info("Preparing to start container: ${self.containerName} (${self.containerId})")
         boolean firstStartup = hasNeverBeenStarted()
 
+
+        Network network = getNetwork(self.containerNetworkName)
+
+        if (!network) {
+            log.debug("\tContainers network is missing,creating it now")
+            network = createBridgeNetwork(self.containerNetworkName)
+        }
+
+        setContainerNetworks([network])
         dockerClient.startContainer(self.containerId)
 
 
@@ -386,7 +398,7 @@ trait Container {
     /**
      * Gets a network based on name or id, note there might be multiple networks with the same name
      * @param networkNameOrId
-     * @return
+     * @return Network if found, null if not
      */
     Network getNetwork(String networkNameOrId) {
 
@@ -577,6 +589,14 @@ trait Container {
         return callBack.output
     }
 
+
+
+    static String extractDomainFromUrl(String url) {
+        String out = url.replaceFirst(/^https?:\/\//, "") //Remove protocol
+        out = out.replaceFirst(/:\d+\\/?.*/, "") //Remove Port and anything after
+        out = out.replaceFirst(/\/.*/, "") //Remove subdomain
+        return out
+    }
 
 
 

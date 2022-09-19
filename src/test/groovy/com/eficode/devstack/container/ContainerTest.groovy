@@ -163,6 +163,39 @@ class ContainerTest extends Specification {
 
     }
 
+    def "Test extractDomainFromUrl"() {
+
+        setup:
+        String expectedOutput = "host.domain.com"
+        ArrayList<String>testPatterns = [
+                "host.domain.com",
+                "host.domain.com",
+                "http://host.domain.com",
+                "https://host.domain.com",
+                "host.domain.com/",
+                "host.domain.com/",
+                "http://host.domain.com/",
+                "https://host.domain.com/",
+                "host.domain.com:8080",
+                "http://host.domain.com:8080",
+                "https://host.domain.com:8080",
+                "host.domain.com/subdomain",
+                "http://host.domain.com/subdomain",
+                "https://host.domain.com/subdomain",
+                "host.domain.com:8080/subdomain",
+                "http://host.domain.com:8080/subdomain",
+                "https://host.domain.com:8080/subdomain"
+        ]
+
+
+        expect:
+        testPatterns.each {url->
+            assert AlpineContainer.extractDomainFromUrl(url) == expectedOutput
+        }
+
+
+    }
+
     def testCreateTar() {
 
         setup:

@@ -6,9 +6,10 @@ import org.slf4j.LoggerFactory
 
 trait Deployment {
 
-    static Logger log = LoggerFactory.getLogger(Deployment.class)
+    static Logger log = LoggerFactory.getLogger(this.class)
     abstract ArrayList<Container> containers
     abstract String friendlyName
+    String deploymentNetworkName = "bridge"
 
 
     abstract boolean setupDeployment()
@@ -37,6 +38,21 @@ trait Deployment {
         }
 
         log.info("\tFinished starting deployment")
+        return true
+
+    }
+
+    boolean stopAndRemoveDeployment() {
+
+        log.info("Stopping and removing deployment: " + this.getFriendlyName())
+
+
+        this.getContainers().each { container ->
+            log.debug("\tStopping container:" + container.containerName)
+            assert container.stopAndRemoveContainer(0): "Error stopping container:" + container.containerId
+        }
+
+        log.info("\tFinished stopping deployment")
         return true
 
     }

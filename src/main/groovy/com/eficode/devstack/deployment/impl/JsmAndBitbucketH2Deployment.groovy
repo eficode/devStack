@@ -15,6 +15,7 @@ import java.util.concurrent.Future
 class JsmAndBitbucketH2Deployment implements Deployment{
 
     String friendlyName = "JIRA and Bitbucket H2 Deployment"
+    String containerNetworkName = "jsm_and_bitbucket"
     ArrayList<Deployment> subDeployments = []
 
     Map<String, String> jiraAppsToInstall = [:]
@@ -122,11 +123,14 @@ class JsmAndBitbucketH2Deployment implements Deployment{
         jsmH2Deployment.setJiraLicense(new File(jiraLicense))
         bitbucketH2Deployment.setBitbucketLicence(new File(bitbucketLicense))
 
+        jsmH2Deployment.deploymentNetworkName = this.containerNetworkName
+        bitbucketH2Deployment.deploymentNetworkName = this.containerNetworkName
 
         ExecutorService threadPool = Executors.newFixedThreadPool(2)
         Future jsmFuture = threadPool.submit(new SetupDeploymentTask(jsmH2Deployment))
         Future bitbucketFuture = threadPool.submit(new SetupDeploymentTask(bitbucketH2Deployment))
         threadPool.shutdown()
+
 
         while(!jsmFuture.done || !bitbucketFuture.done) {
             log.info("Waiting for deployments to finish")
