@@ -1,12 +1,18 @@
 package com.eficode.devstack.container
 
 import de.gesellix.docker.client.DockerClientImpl
+import de.gesellix.docker.client.network.ManageNetworkClient
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
 import de.gesellix.docker.remote.api.ContainerInspectResponse
+import de.gesellix.docker.remote.api.ContainerState
+import de.gesellix.docker.remote.api.ContainerSummary
+import de.gesellix.docker.remote.api.EndpointSettings
 import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
+import de.gesellix.docker.remote.api.Network
+import de.gesellix.docker.remote.api.NetworkCreateRequest
 import de.gesellix.docker.remote.api.core.ClientException
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
@@ -27,19 +33,22 @@ import java.time.Duration
 
 trait Container {
 
-    static Logger log = LoggerFactory.getLogger(Container.class)
-    static DockerClientImpl dockerClient = new DockerClientImpl()
+    Logger log = LoggerFactory.getLogger(this.class)
+    DockerClientImpl dockerClient = new DockerClientImpl()
+    ManageNetworkClient networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
     abstract String containerName
     abstract String containerMainPort
+    String containerNetworkName = "bridge"
+    String defaultShell = "/bin/bash"
     String containerId
     ArrayList<Mount> mounts = []
 
 
-    void prepareBindMount(String sourceAbs, String target, boolean readOnly = true){
-        assert !isCreated() : "Bind mounts cant be prepared for already created container"
+    void prepareBindMount(String sourceAbs, String target, boolean readOnly = true) {
+        assert !isCreated(): "Bind mounts cant be prepared for already created container"
 
         this.mounts.add(
-                new Mount().tap{m ->
+                new Mount().tap { m ->
                     m.source = sourceAbs
                     m.target = target
                     m.readOnly = readOnly
@@ -51,7 +60,11 @@ trait Container {
 
 
 
+    abstract String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint)
+
     abstract String createContainer()
+
+    abstract boolean runOnFirstStartup()
 
 
     /**
@@ -67,6 +80,9 @@ trait Container {
         dockerEnv.setTlsVerify("1")
         dockerConfig.apply(dockerEnv)
         dockerClient = new DockerClientImpl(dockerConfig)
+        networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
+
+
         return ping()
 
     }
@@ -85,8 +101,8 @@ trait Container {
 
     boolean isCreated() {
 
-        ArrayList<Map> content = dockerClient.ps().content
-        ArrayList<String> containerNames = content.collect { it.Names }.flatten()
+        ArrayList<ContainerSummary> content = dockerClient.ps().content
+        ArrayList<String> containerNames = content.collect { it.names }.flatten()
         return containerNames.find { it == "/" + self.containerName } != null
 
     }
@@ -107,10 +123,10 @@ trait Container {
         log.info("\tResolving container ID for:" + self.containerName)
 
 
-        ArrayList<Map> content = dockerClient.ps().content
+        ArrayList<ContainerSummary> containers = dockerClient.ps().content
 
-        Map container = content.find { it.Names.first() == "/" + self.containerName }
-        this.containerId = container?.Id
+        ContainerSummary matchingContainer = containers.find { it.names.first() == "/" + self.containerName }
+        this.containerId = matchingContainer.id
         log.info("\tGot:" + this.containerId)
 
         return containerId
@@ -118,41 +134,105 @@ trait Container {
 
     boolean startContainer() {
 
+
+        log.info("Preparing to start container: ${self.containerName} (${self.containerId})")
+        boolean firstStartup = hasNeverBeenStarted()
+
+
+        Network network = getNetwork(self.containerNetworkName)
+
+        if (!network) {
+            log.debug("\tContainers network is missing,creating it now")
+            network = createBridgeNetwork(self.containerNetworkName)
+        }
+
+        setContainerNetworks([network])
         dockerClient.startContainer(self.containerId)
+
+
+        if (firstStartup) {
+
+            log.debug("\tThis is the first time container starts, running one time startup tasks")
+            assert runOnFirstStartup(): "Error running initial startup commands inside of the container"
+            log.trace("\t\tFinished running first time startup tasks")
+        }
+
 
         return isRunning()
     }
 
-    ContainerInspectResponse inspect() {
-        return dockerClient.inspectContainer(self.containerId).content
+    ContainerInspectResponse inspectContainer() {
+        return self.containerId ? dockerClient.inspectContainer(self.containerId).content : null
     }
 
     boolean isRunning() {
-        return inspect().state.running
+        return inspectContainer()?.state?.running
     }
 
-    String getIp(){
-        inspect().networkSettings.ipAddress
+
+    /**
+     * Returns true if the container has been created but never started
+     * @return
+     */
+    boolean hasNeverBeenStarted() {
+
+        ContainerState.Status status = inspectContainer()?.state?.status
+
+        if (status == ContainerState.Status.Created) {
+            return true //Created but not started
+        } else if (status == null) {
+            return true //Not even created
+        } else {
+            return false
+        }
+
     }
 
-    boolean stopAndRemoveContainer() {
+    ArrayList<String> getIps() {
+        ContainerInspectResponse inspectResponse = inspectContainer()
+        ArrayList<String> ips = inspectResponse.networkSettings.networks.values().ipAddress
+
+        if (inspectResponse.networkSettings.ipAddress != null ) {
+            ips.add(inspectResponse.networkSettings.ipAddress)
+            ips.unique(true)
+        }
+
+
+
+        return ips
+    }
+
+    ContainerState.Status status() {
+        return inspectContainer().state.status
+    }
+
+    boolean stopAndRemoveContainer(Integer timeoutS = 5) {
+
+        log.info("Stopping and removing container")
+        log.info("\tContainer: ${self.containerName} (${self.containerId})")
 
         if (self.containerId) {
-            dockerClient.stop(self.containerId, 240000)
-            dockerClient.wait(self.containerId)
+
+            dockerClient.stop(self.containerId, timeoutS)
+            if (self.status() == ContainerState.Status.Running) {
+                dockerClient.kill(self.containerId)
+            }
             dockerClient.rm(self.containerId)
 
 
             try {
-                inspect()
+                inspectContainer()
             } catch (ClientException ex) {
 
                 if (ex.response.message == "Not Found") {
+                    containerId = null
                     return true
+                } else {
+                    throw new InputMismatchException("Error stopping and removing container")
                 }
             }
             return false
-        }else {
+        } else {
             return false
         }
 
@@ -161,7 +241,7 @@ trait Container {
 
     boolean stopContainer() {
         log.info("Stopping container:" + self.containerId)
-        dockerClient.stop(self.containerId, 240000)
+        running ? dockerClient.stop(self.containerId, 240000) : ""
         if (running) {
             log.warn("\tFailed to stop container" + self.containerId)
             return false
@@ -172,7 +252,7 @@ trait Container {
     }
 
 
-    static File createTar(ArrayList<String> filePaths, String outputPath) {
+    File createTar(ArrayList<String> filePaths, String outputPath) {
 
 
         log.info("Creating tar file:" + outputPath)
@@ -226,7 +306,7 @@ trait Container {
 
     }
 
-    static ArrayList<File> extractTar(File tarFile, String outputPath) {
+    ArrayList<File> extractTar(File tarFile, String outputPath) {
 
 
         log.info("Extracting: " + tarFile.path + " (${tarFile.size() / 1024}kB)")
@@ -256,6 +336,190 @@ trait Container {
         }
 
         return outFiles
+    }
+
+
+    /**
+     * Creates a network of the type bridge, or returns an existing one if one with the same name exists
+     * @param networkName name of the network
+     * @return the created/existing network
+     */
+    Network createBridgeNetwork(String networkName) {
+
+        log.info("Creating network:" + networkName)
+
+
+        Network existingNetwork = getBridgeNetwork(networkName)
+
+        if (existingNetwork) {
+            log.info("\tNetwork already exists (${existingNetwork.id}), returning that.")
+            return existingNetwork
+        }
+
+
+        NetworkCreateRequest createRequest = new NetworkCreateRequest(networkName, false, "bridge", null, null, null, null, null, [:], null)
+
+
+        String networkId = networkClient.createNetwork(createRequest).content.id
+        assert networkId: "Error creating network:" + networkName
+        log.info("\tCreated:" + networkId)
+
+        Network newNetwork = networkClient.networks([filters: [id: [networkId]]])?.content?.first()
+        assert newNetwork: "Error finding newly created network $networkName with id: " + networkId
+
+        return newNetwork
+    }
+
+
+    boolean removeNetwork(Network network) {
+
+
+        log.info("Removing network:" + network.name)
+
+        networkClient.rmNetwork(network.id)
+
+        return networkClient.networks([filters: [id: [network.id]]])?.content?.isEmpty()
+
+    }
+
+    /**
+     * Gets a bridge network based on name or id, note there might be multiple networks with the same name
+     * @param networkNameOrId
+     * @return null or one of the matching networks
+     */
+    Network getBridgeNetwork(String networkNameOrId) {
+
+
+        Network network = networkClient.networks().content.find { (it.name == networkNameOrId || it.id == networkNameOrId) && it.driver == "bridge" }
+
+        return network
+    }
+
+
+    /**
+     * Gets a network based on name or id, note there might be multiple networks with the same name
+     * @param networkNameOrId
+     * @return Network if found, null if not
+     */
+    Network getNetwork(String networkNameOrId) {
+
+
+        Network network = networkClient.networks().content.find { it.name == networkNameOrId || it.id == networkNameOrId }
+
+        return network
+    }
+
+    boolean networkIsValid(Network network) {
+        return getNetwork(network.id) != null
+    }
+
+    ArrayList<Network> getContainerNetworks() {
+        Map<String, EndpointSettings> rawResponse = inspectContainer().networkSettings.networks
+
+        ArrayList<Network> networks = []
+        rawResponse.keySet().each {networkId ->
+            Network network = getNetwork(networkId)
+
+            if (network != null) {
+                networks.add(network)
+            }else if (networkId) {
+                //Handle networks that the container is attached to but that have been deleted
+                Network deletedNetwork = new Network()
+                deletedNetwork.id = networkId
+                deletedNetwork.driver = "deleted"
+                networks.add(deletedNetwork)
+            }
+        }
+
+        return networks
+    }
+
+    ArrayList<Network> getContainerBridgeNetworks() {
+
+
+        return getContainerNetworks().findAll {it.driver == "bridge"}
+
+    }
+
+    /**
+     * Connect container to an existing network.
+     * Note:
+     *  A container will by default already belong to a network, so this method might connect the container to a second.
+     * @param network
+     * @return true on success
+     */
+    boolean connectContainerToNetwork(Network network) throws InputMismatchException{
+
+
+        log.info("Connecting container $containerId to network:" + network.name)
+
+        if (!networkIsValid(network)) {
+            throw new InputMismatchException("Error connecting container (${containerName}) to network: ${network.name} (${network.id}). Network is not valid")
+        }
+
+        networkClient.connectNetwork(network.id, containerId)
+        log.trace("\tVerifying container was added to network")
+
+
+        if (containerNetworks.find { it.id == network.id } != null) {
+            log.info("\tContainer was successfully added to network")
+            return true
+        }
+        log.error("\tContainer failed to be added to network")
+        throw new InputMismatchException("Error connecting container (${containerName}) to network: ${network.name} (${network.id})")
+
+
+    }
+
+    boolean disconnectContainerFromNetwork(Network network) {
+
+        log.info("Disconnecting container $containerId from network:" + network.name)
+
+        networkClient.disconnectNetwork(network.id, containerId)
+        log.trace("\tVerifying container was disconnected from network")
+
+        if (!containerNetworks.find { it.id == network.id }) {
+            log.info("\tContainer was successfully disconnected from network")
+            return true
+        }
+
+        return false
+
+
+    }
+
+    /**
+     * Sets networks for the container, disconnecting the container from any networks not in the list
+     * @param newNetworks A list of the networks that the container should be connected to
+     * @return true on success
+     */
+    boolean setContainerNetworks(ArrayList<Network> newNetworks) throws InputMismatchException, AssertionError{
+
+        log.info("Setting container networks")
+        log.info("\tBeginning by disconnecting any networks it should no longer be connected to")
+        ArrayList networks = containerNetworks
+        containerNetworks.each { connectedNetwork ->
+
+            if (newNetworks.id.find { newNetworkId -> newNetworkId != connectedNetwork.id }) {
+                assert disconnectContainerFromNetwork(connectedNetwork): "Error disconnecting container (${containerName}) from network: ${connectedNetwork.name} (${connectedNetwork.id})"
+                log.info("\t\tDisconnected container from network:" + connectedNetwork.name)
+            }
+
+        }
+        log.info("\tFinished disconnecting container from unwanted networks, now connecting to new networks")
+
+        ArrayList<Network>connectedNetworks = containerNetworks
+        newNetworks.each { wantedNetwork ->
+
+            if (connectedNetworks.id.find { wantedNetwork.id }) {
+                log.info("\t\tContainer already connected to ${wantedNetwork.name} (${wantedNetwork.id})")
+            } else {
+                assert connectContainerToNetwork(wantedNetwork): "Error connecting container (${containerName}) to network: ${wantedNetwork.name} (${wantedNetwork.id})"
+                log.info("\t\tConnected container to network:" + wantedNetwork.name)
+            }
+
+        }
+
     }
 
 
@@ -319,14 +583,22 @@ trait Container {
         }
 
 
-
         ContainerCallback callBack = new ContainerCallback()
-        EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, ["/bin/bash", "-c", command], callBack, Duration.ofSeconds(timeoutS))
-
+        EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, [self.defaultShell, "-c", command], callBack, Duration.ofSeconds(timeoutS))
 
 
         return callBack.output
     }
+
+
+
+    String extractDomainFromUrl(String url) {
+        String out = url.replaceFirst(/^https?:\/\//, "") //Remove protocol
+        out = out.replaceFirst(/:\d+\\/?.*/, "") //Remove Port and anything after
+        out = out.replaceFirst(/\/.*/, "") //Remove subdomain
+        return out
+    }
+
 
 
 }

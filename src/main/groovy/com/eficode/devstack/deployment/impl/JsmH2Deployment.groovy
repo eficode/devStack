@@ -1,6 +1,6 @@
 package com.eficode.devstack.deployment.impl
 
-import com.eficode.atlassian.jiraInstanceManger.JiraInstanceMangerRest
+import com.eficode.atlassian.jiraInstanceManager.JiraInstanceManagerRest
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.JsmContainer
 import com.eficode.devstack.deployment.Deployment
@@ -8,7 +8,7 @@ import com.eficode.devstack.deployment.Deployment
 class JsmH2Deployment implements Deployment{
 
     String friendlyName = "JIRA H2 Deployment"
-    JiraInstanceMangerRest jiraRest
+    JiraInstanceManagerRest jiraRest
     ArrayList<Container> containers = []
     Map<String,String> appsToInstall = [:]
     String jiraLicense
@@ -17,8 +17,9 @@ class JsmH2Deployment implements Deployment{
 
     JsmH2Deployment(String jiraBaseUrl) {
         this.jiraBaseUrl = jiraBaseUrl
-        this.jiraRest = new JiraInstanceMangerRest(jiraBaseUrl)
+        this.jiraRest = new JiraInstanceManagerRest(jiraBaseUrl)
         this.containers = [new JsmContainer()]
+        getJsmContainer().containerName = jsmContainer.extractDomainFromUrl(jiraBaseUrl)
     }
 
     JsmContainer getJsmContainer() {
@@ -76,13 +77,14 @@ class JsmH2Deployment implements Deployment{
 
         jsmContainer.createContainer()
         log.info("\tCreated jsm container:" + jsmContainer.id)
+
+        log.info("\tConfiguring container to join network:" + this.deploymentNetworkName)
+        jsmContainer.containerNetworkName = this.deploymentNetworkName
+
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")
 
-        log.debug("\tCreating folders needed for running Spoc tests with ScriptRunner")
-        assert jsmContainer.runBashCommandInContainer("mkdir  /opt/atlassian/jira/surefire-reports ; chown jira:jira  /opt/atlassian/jira/surefire-reports").empty
-        log.debug("\tUpdating apt and installing dependencies")
-        jsmContainer.runBashCommandInContainer("apt update; apt install -y htop nano", 20)
+
 
         log.info("\tSetting up local H2 database")
         assert jiraRest.setupH2Database() : "Error setting up H2 database for JSM"

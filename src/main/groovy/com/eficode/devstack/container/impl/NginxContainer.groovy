@@ -31,6 +31,16 @@ class NginxContainer implements Container{
         return containerId
     }
 
+    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
+
+        if (cmd || entrypoint) {
+            throw new InputMismatchException("cmd and entrypoint cant be supplied to ${NginxContainer.simpleName}")
+        }
+
+        return createContainer()
+
+    }
+
 
     /**
      * Bind local dir to nginx default root dir /usr/share/nginx/html
@@ -55,6 +65,7 @@ class NginxContainer implements Container{
                 h.portBindings = [(containerMainPort+"/tcp"): [new PortBinding("0.0.0.0", (containerMainPort))]]
                 h.mounts = this.mounts
             }
+            c.hostname = containerName
 
 
         }
@@ -68,5 +79,9 @@ class NginxContainer implements Container{
         return containerId
 
 
+    }
+
+    boolean runOnFirstStartup() {
+        return true
     }
 }
