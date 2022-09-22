@@ -24,10 +24,6 @@ jobs:
           server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
           settings-path: ${{ github.workspace }} # location for the settings.xml file
 
-      - name: Compile Groovy code and generate sources
-        run: mvn gplus:compile generate-sources package
-
-
       #Manually first (once) set up an orphaned branch:
       # git switch --orphan packages
       # git commit --allow-empty -m "Initial commit on packages branch"
@@ -44,7 +40,7 @@ jobs:
           echo Compiling, Packaging and Installing Groovy 2.5 version of library to local m2 directory
           mvn install -f pom-2.5.xml -Dmaven.repo.local=localm2/ -DcreateChecksum=true
           
-          echo Compiling, Packaging and Installing Groovy 2.5 version of library to local m2 directory
+          echo Compiling, Packaging and Installing Groovy 3.0 version of library to local m2 directory
           mvn install -f pom-3.0.xml -Dmaven.repo.local=localm2/ -DcreateChecksum=true
           
           echo Copying the new JAR files to repository which will be added to git branch "packages"
