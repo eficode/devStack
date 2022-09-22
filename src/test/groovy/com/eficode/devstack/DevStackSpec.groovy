@@ -31,24 +31,58 @@ class DevStackSpec extends Specification{
     static Logger log = LoggerFactory.getLogger(this.class)
 
 
+    def setup() {
+        cleanupContainers()
+    }
+
+    def cleanup() {
+        cleanupContainers()
+    }
+
+    def cleanupSpec() {
+        cleanupContainers()
+    }
+
+
+
     boolean cleanupContainers() {
 
-        log.info("Cleaning up containers")
+
 
         DockerClientImpl dockerClient = resolveDockerClient()
+        log.info("Cleaning up containers")
 
         ArrayList<ContainerSummary> containers = dockerClient.ps().content
 
         log.debug("\tThere are currenlty ${containers.size()} containers")
+        log.debug("\tWill remove any container named:" + containerNames.join(","))
+        log.debug("\tWill remove any container bound to ports:" + containerPorts.join(","))
         containers.each {container->
 
-            boolean nameCollision = container.names.find {existingName -> containerNames.contains("/" + existingName)}
-            boolean portCollision = container.ports.find { existingPort -> containerPorts.contains(existingPort.publicPort)}
+            boolean nameCollision = false
+            container.names.any {existingName ->
+                containerNames.any {unwantedName ->
+                    if (existingName == "/"+ unwantedName) {
+                        nameCollision = true
+                    }
+                }
+            }
+
+
+            boolean portCollision = false
+
+            container.ports.find { existingPort ->
+                containerPorts.each {unwantedPort ->
+                    if (existingPort.publicPort == unwantedPort) {
+                        portCollision = true
+                    }
+                }
+            }
 
             if (nameCollision || portCollision) {
                 log.info("\tWill kill and remove container: ${container.names.join(",")} (${container.id})")
-                log.debug("\t\tContainer has matching name:" + nameCollision)
-                log.debug("\t\tContainer has matching port:" + portCollision)
+                log.debug("\t\tContainer has matching name:" + nameCollision + " (${container.names.join(",")})")
+                log.debug("\t\tContainer has matching port:" + portCollision + " (${container.ports.publicPort.join(",")})")
 
                 if (container.state == "running") {
                     dockerClient.kill(container.id)

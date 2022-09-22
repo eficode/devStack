@@ -83,7 +83,7 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
 
         containerNames.each {containerName ->
 
-            ContainerSummary container = containers.find { it.Names.first() == "/" + containerName }
+            ContainerSummary container = containers.find { it.names.first() == "/" + containerName }
             String id = container?.id
 
             if (id) {
