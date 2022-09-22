@@ -56,7 +56,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
     }
 
     JsmContainer getJsmContainer() {
-        return jsmH2Deployment.find {it instanceof JsmContainer} as JsmContainer
+        return jsmH2Deployment.jsmContainer
     }
 
     BitbucketH2Deployment getBitbucketH2Deployment() {
@@ -64,7 +64,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
     }
 
     BitbucketContainer getBitbucketContainer() {
-        return bitbucketH2Deployment.find {it instanceof BitbucketContainer} as BitbucketContainer
+        return bitbucketH2Deployment.bitbucketContainer
     }
 
     void setJiraLicense(String licenseText) {

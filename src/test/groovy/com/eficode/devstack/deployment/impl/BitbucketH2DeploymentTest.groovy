@@ -43,6 +43,7 @@ class BitbucketH2DeploymentTest extends Specification{
         BitbucketH2Deployment  bitbucketDep = new BitbucketH2Deployment(bitbucketBaseUrl)
         bitbucketDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
         bitbucketDep.setBitbucketLicence(bitbucketLicenseFile)
+        bitbucketDep.stopAndRemoveDeployment()
 
 
         when:

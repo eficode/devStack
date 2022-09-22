@@ -157,7 +157,6 @@ class ContainerTest extends Specification {
         alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.containerName).any {it.contains("0% packet loss")}
         alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.ips.first()).any {it.contains("0% packet loss")}
         alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.ips.first()).any {it.contains("0% packet loss")}
-        alpine1.runBashCommandInContainer("ping -c 1 foobar").any {it.contains("bad address")}
 
 
 
@@ -190,7 +189,7 @@ class ContainerTest extends Specification {
 
         expect:
         testPatterns.each {url->
-            assert AlpineContainer.extractDomainFromUrl(url) == expectedOutput
+            assert new AlpineContainer().extractDomainFromUrl(url) == expectedOutput
         }
 
 
