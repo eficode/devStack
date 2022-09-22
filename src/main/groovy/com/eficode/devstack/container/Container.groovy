@@ -101,8 +101,8 @@ trait Container {
 
     boolean isCreated() {
 
-        ArrayList<Map> content = dockerClient.ps().content
-        ArrayList<String> containerNames = content.collect { it.Names }.flatten()
+        ArrayList<ContainerSummary> content = dockerClient.ps().content
+        ArrayList<String> containerNames = content.collect { it.names }.flatten()
         return containerNames.find { it == "/" + self.containerName } != null
 
     }

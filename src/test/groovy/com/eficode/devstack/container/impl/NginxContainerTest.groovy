@@ -45,13 +45,7 @@ class NginxContainerTest extends DevStackSpec {
 
     }
 
-    def setup() {
-        cleanupContainers()
-    }
 
-    def cleanup() {
-        cleanupContainers()
-    }
 
 
     def "test default setup"() {
