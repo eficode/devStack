@@ -129,12 +129,12 @@
                                 </excludes>
 
                             </artifactSet>
-                            <relocations>
+                            <!--relocations>
                                 <relocation>
                                     <pattern>kong.unirest.</pattern>
                                     <shadedPattern>com.eficode.shaded.kong.unirest.</shadedPattern>
                                 </relocation>
-                            </relocations>
+                            </relocations-->
 
                             <!-- NOTE: Any dependencies of the project will not show up in the standalone pom.
                             This means that if those dependencies are not properly relocated and there is a class-loading conflict,
@@ -212,6 +212,7 @@
                         <include>**/*Spec.class</include>
                         <include>**/*Test.java</include>
                     </includes>
+                    <skipTests>true</skipTests>
                 </configuration>
             </plugin>
         </plugins>
