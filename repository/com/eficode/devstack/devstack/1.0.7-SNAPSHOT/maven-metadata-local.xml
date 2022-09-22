@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata modelVersion="1.1.0">
+  <groupId>com.eficode</groupId>
+  <artifactId>devstack</artifactId>
+  <versioning>
+    <lastUpdated>20220922140611</lastUpdated>
+    <snapshot>
+      <localCopy>true</localCopy>
+    </snapshot>
+    <snapshotVersions>
+      <snapshotVersion>
+        <extension>pom</extension>
+        <value>1.0.7-SNAPSHOT</value>
+        <updated>20220922140611</updated>
+      </snapshotVersion>
+    </snapshotVersions>
+  </versioning>
+  <version>1.0.7-SNAPSHOT</version>
+</metadata>

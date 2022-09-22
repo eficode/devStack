@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Thu Sep 22 14:07:39 UTC 2022
+devstack-1.0.7-SNAPSHOT-groovy-3.0.pom>=
+devstack-1.0.7-SNAPSHOT-groovy-3.0-test-sources.jar>=
+devstack-1.0.7-SNAPSHOT-groovy-3.0-sources.jar>=
+devstack-1.0.7-SNAPSHOT-groovy-3.0-standalone.jar>=
+devstack-1.0.7-SNAPSHOT-groovy-3.0.jar>=
