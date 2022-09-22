@@ -99,7 +99,7 @@ class JsmContainer implements Container {
         log.debug("\tCreating folders needed for running Spoc tests with ScriptRunner")
         assert runBashCommandInContainer("mkdir  /opt/atlassian/jira/surefire-reports ; chown jira:jira  /opt/atlassian/jira/surefire-reports").empty
         log.debug("\tUpdating apt and installing dependencies")
-        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping; echo \$?", 20).last() == "0"
+        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping; echo status: \$?", 20).any {it.contains("status: 0")}
 
         return true
 

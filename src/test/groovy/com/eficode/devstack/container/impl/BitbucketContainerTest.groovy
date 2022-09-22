@@ -37,16 +37,11 @@ class BitbucketContainerTest extends Specification {
 
 
 
-    def "sandbox"() {
-
-        setup:
-        dockerClient.manageImage.build()
-    }
-
     def "test setupContainer"() {
         setup:
         log.info("Testing setup of BB container using trait method")
         BitbucketContainer bbc = new BitbucketContainer(dockerRemoteHost, dockerCertPath)
+        bbc.containerName = bbc.extractDomainFromUrl(bitbucketBaseUrl)
         BitbucketInstanceManagerRest bbr = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
 
         bbc.stopAndRemoveContainer()

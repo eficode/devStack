@@ -8,29 +8,29 @@
     <artifactId>devstack</artifactId>
     <version>1.0.7-SNAPSHOT</version>
     <description>A series of scripts for setting up common developer application suites</description>
+    <packaging>pom</packaging>
 
 
     <dependencies>
+
+
+
         <dependency>
             <groupId>org.codehaus.groovy</groupId>
-            <artifactId>groovy-all</artifactId>
+            <artifactId>groovy</artifactId>
             <version>3.0.11</version>
-            <type>pom</type>
+            <scope>compile</scope>
         </dependency>
+
         <dependency>
-            <groupId>org.spockframework</groupId>
-            <artifactId>spock-core</artifactId>
-            <version>2.1-groovy-3.0</version>
-        </dependency>
-        <dependency>
-            <groupId>de.gesellix</groupId>
-            <artifactId>docker-client</artifactId>
-            <version>2022-05-24T07-36-00</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.1</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
-            <version>1.7.36</version>
+            <version>2.0.0</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-compress -->
         <dependency>
@@ -44,23 +44,45 @@
             <artifactId>commons-io</artifactId>
             <version>2.11.0</version>
         </dependency>
-        <dependency>
-            <groupId>com.konghq</groupId>
-            <artifactId>unirest-java</artifactId>
-            <version>3.13.6</version>
-            <classifier>standalone</classifier>
-        </dependency>
+
         <dependency>
             <groupId>com.eficode.atlassian</groupId>
             <artifactId>jirainstancemanager</artifactId>
             <version>1.1.0-SNAPSHOT</version>
         </dependency>
+
         <dependency>
-            <groupId>com.eficode.atlassian</groupId>
-            <artifactId>bitbucketinstancemanager</artifactId>
-            <version>0.0.3-SNAPSHOT-groovy-3.0</version>
-            <classifier>standalone</classifier>
+            <groupId>de.gesellix</groupId>
+            <artifactId>docker-client</artifactId>
+            <version>2022-07-28T22-55-00</version>
         </dependency>
+
+        <!--dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.9.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.9.0</version>
+            <scope>test</scope>
+        </dependency-->
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.9.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.9.0</version>
+            <scope>test</scope>
+        </dependency>
+
 
 
     </dependencies>
@@ -75,9 +97,54 @@
             <url>https://github.com/eficode/BitbucketInstanceManagerRest/raw/packages/repository/</url>
         </repository>
     </repositories>
+
     <build>
         <!--sourceDirectory>${basedir}/src/main/groovy/</sourceDirectory-->
         <plugins>
+            <plugin>
+                <!-- Configured in pluginManagement instead of plugins, because we do not want a shaded parent POM -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.4</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Will output 2 jars: the original, and the shaded one -->
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+
+                            <!-- final name of the shaded jar will be ${project.artifactId}-standalone -->
+                            <shadedClassifierName>standalone</shadedClassifierName>
+
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>org.codehaus.groovy:groovy</exclude>
+                                    <exclude>com.google.code.gson:gson</exclude>
+                                    <exclude>org.apache.httpcomponents</exclude>
+                                    <exclude>commons-*</exclude>
+
+                                </excludes>
+
+                            </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>kong.unirest.</pattern>
+                                    <shadedPattern>com.eficode.shaded.kong.unirest.</shadedPattern>
+                                </relocation>
+                            </relocations>
+
+                            <!-- NOTE: Any dependencies of the project will not show up in the standalone pom.
+                            This means that if those dependencies are not properly relocated and there is a class-loading conflict,
+                            user would not be able to figure out where the conflicting dependency is. -->
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -102,8 +169,12 @@
                         <goals>
                             <goal>addSources</goal>
                             <goal>addTestSources</goal>
+                            <goal>generateStubs</goal>
                             <goal>compile</goal>
+                            <goal>generateTestStubs</goal>
                             <goal>compileTests</goal>
+                            <goal>removeStubs</goal>
+                            <goal>removeTestStubs</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -127,8 +198,25 @@
                 </configuration-->
 
             </plugin>
+            <!--plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+            </plugin-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M7</version>
+                <configuration>
+                    <includes>
+                        <include>**/*Spec.class</include>
+                        <include>**/*Test.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
+
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>

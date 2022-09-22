@@ -7,6 +7,7 @@ import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
+import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.EndpointSettings
 import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
@@ -122,10 +123,10 @@ trait Container {
         log.info("\tResolving container ID for:" + self.containerName)
 
 
-        ArrayList<Map> content = dockerClient.ps().content
+        ArrayList<ContainerSummary> containers = dockerClient.ps().content
 
-        Map container = content.find { it.Names.first() == "/" + self.containerName }
-        this.containerId = container?.Id
+        ContainerSummary matchingContainer = containers.find { it.names.first() == "/" + self.containerName }
+        this.containerId = matchingContainer.id
         log.info("\tGot:" + this.containerId)
 
         return containerId
@@ -591,7 +592,7 @@ trait Container {
 
 
 
-    static String extractDomainFromUrl(String url) {
+    String extractDomainFromUrl(String url) {
         String out = url.replaceFirst(/^https?:\/\//, "") //Remove protocol
         out = out.replaceFirst(/:\d+\\/?.*/, "") //Remove Port and anything after
         out = out.replaceFirst(/\/.*/, "") //Remove subdomain

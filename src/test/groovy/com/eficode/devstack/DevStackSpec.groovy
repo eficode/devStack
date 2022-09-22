@@ -1,6 +1,6 @@
-package com.eficode.devstack.deployment.impl
+package com.eficode.devstack
 
-import com.eficode.devstack.container.impl.JsmContainer
+import com.eficode.devstack.deployment.impl.JsmH2DeploymentTest
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
-class JsmAndBitbucketH2DeploymentTest extends Specification{
+class DevStackSpec extends Specification{
 
     @Shared
     String dockerRemoteHost = "https://docker.domain.se:2376"
@@ -19,61 +19,50 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
     String dockerCertPath = "resources/dockerCert"
 
     @Shared
-    String jiraBaseUrl = "http://jira.domain.se:8080"
+    DockerClientImpl dockerClient
 
     @Shared
-    String bitbucketBaseUrl = "http://bitbucket.domain.se:7990"
+    ArrayList<String> containerNames
+    @Shared
+    ArrayList<Integer> containerPorts
+
 
     @Shared
-    String jiraDomain
-
-    @Shared
-    String bitbucketDomain
-
-    @Shared
-    static Logger log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
-
-    @Shared
-    File bitbucketLicenseFile = new File("resources/bitbucket/licenses/bitbucketLicense")
-
-    @Shared
-    File jsmLicenseFile = new File("resources/jira/licenses/jsm.license")
+    static Logger log = LoggerFactory.getLogger(this.class)
 
 
-    def setupSpec() {
+    boolean cleanupContainers() {
 
+        log.info("Cleaning up containers")
 
-        assert jsmLicenseFile.text.length() > 10 : "Jira license file does not appear valid"
-        assert bitbucketLicenseFile.text.length() > 10 : "Bitbucket license file does not appear valid"
+        DockerClientImpl dockerClient = resolveDockerClient()
 
-        JsmContainer jsmContainerPlaceholder = new JsmContainer()
-        jiraDomain = jsmContainerPlaceholder.extractDomainFromUrl(jiraBaseUrl)
-        bitbucketDomain = jsmContainerPlaceholder.extractDomainFromUrl(bitbucketBaseUrl)
-    }
+        ArrayList<ContainerSummary> containers = dockerClient.ps().content
 
-    def "test setupDeployment"() {
+        log.debug("\tThere are currenlty ${containers.size()} containers")
+        containers.each {container->
 
-        setup:
+            boolean nameCollision = container.names.find {existingName -> containerNames.contains("/" + existingName)}
+            boolean portCollision = container.ports.find { existingPort -> containerPorts.contains(existingPort.publicPort)}
 
-        stopAndRemoveContainer([jiraDomain, bitbucketDomain])
+            if (nameCollision || portCollision) {
+                log.info("\tWill kill and remove container: ${container.names.join(",")} (${container.id})")
+                log.debug("\t\tContainer has matching name:" + nameCollision)
+                log.debug("\t\tContainer has matching port:" + portCollision)
 
-        JsmAndBitbucketH2Deployment jsmAndBb = new JsmAndBitbucketH2Deployment(jiraBaseUrl, bitbucketBaseUrl)
-        jsmAndBb.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
+                if (container.state == "running") {
+                    dockerClient.kill(container.id)
+                }
+                dockerClient.rm(container.id)
+                log.info("Stopped and removed container: ${container?.names?.join(",")} (${container?.id})")
+            }
+        }
 
-        jsmAndBb.bitbucketLicense = bitbucketLicenseFile
-        jsmAndBb.jiraLicense = jsmLicenseFile
-
-
-        expect:
-        jsmAndBb.setupDeployment()
-        jsmAndBb.bitbucketContainer.runBashCommandInContainer("ping -c 1 ${jiraDomain}").any {it.contains("0% packet loss")}
-        jsmAndBb.jsmContainer.runBashCommandInContainer("ping -c 1 ${bitbucketDomain}").any {it.contains("0% packet loss")}
 
     }
 
 
-
-
+    /**
     def stopAndRemoveContainer(ArrayList<String> containerNames) {
 
 
@@ -97,6 +86,7 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
 
 
     }
+     */
 
     DockerClientImpl resolveDockerClient() {
 
@@ -139,12 +129,13 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
 
     }
 
+
     /**
      * Replaced the default docker connection (local) with a remote, secure one
      * @param host ex: "https://docker.domain.se:2376"
      * @param certPath folder containing ca.pem, cert.pem, key.pem
      */
-    DockerClientImpl setupSecureRemoteConnection(String host, String certPath) {
+    static DockerClientImpl setupSecureRemoteConnection(String host, String certPath) {
 
         DockerClientConfig dockerConfig = new DockerClientConfig(host)
         DockerEnv dockerEnv = new DockerEnv(host)
@@ -155,6 +146,5 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
         return new DockerClientImpl(dockerConfig)
 
     }
-
 
 }

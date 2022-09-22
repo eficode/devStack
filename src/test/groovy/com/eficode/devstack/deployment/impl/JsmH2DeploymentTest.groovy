@@ -18,7 +18,7 @@ class JsmH2DeploymentTest extends Specification {
 
     @Shared
     //String jiraBaseUrl = "http://192.168.0.1:8080"
-    String jiraBaseUrl = "http://docker.domain.se:8080"
+    String jiraBaseUrl = "http://jira.domain.se:8080"
     //String jiraBaseUrl = "http://localhost:8080"
 
     @Shared
@@ -42,6 +42,7 @@ class JsmH2DeploymentTest extends Specification {
         setup:
         JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl)
         jsmDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
+        jsmDep.stopAndRemoveDeployment()
         //jsmDep.jsmContainer.containerImageTag = "4.22.2"
         jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
         jsmDep.appsToInstall = [
