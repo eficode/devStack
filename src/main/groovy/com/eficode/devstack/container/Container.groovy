@@ -126,7 +126,7 @@ trait Container {
         ArrayList<ContainerSummary> containers = dockerClient.ps().content
 
         ContainerSummary matchingContainer = containers.find { it.names.first() == "/" + self.containerName }
-        this.containerId = matchingContainer.id
+        this.containerId = matchingContainer?.id
         log.info("\tGot:" + this.containerId)
 
         return containerId
@@ -233,7 +233,8 @@ trait Container {
             }
             return false
         } else {
-            return false
+            log.info("\tContainer not setup, nothing to remove")
+            return true
         }
 
 
