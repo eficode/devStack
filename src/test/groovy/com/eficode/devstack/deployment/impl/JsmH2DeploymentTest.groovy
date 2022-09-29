@@ -41,14 +41,14 @@ class JsmH2DeploymentTest extends DevStackSpec {
         containerPorts = [8080, 8082]
 
         disableCleanupAfter = false
-        dockerClient = resolveDockerClient()
+
 
     }
 
-    def "test setupDeployment"() {
+    def "test setupDeployment"(String baseurl, String port) {
         setup:
 
-        JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl)
+        JsmH2Deployment jsmDep = new JsmH2Deployment(baseurl)
         jsmDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
 
         jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
@@ -61,26 +61,20 @@ class JsmH2DeploymentTest extends DevStackSpec {
         boolean setupSuccess = jsmDep.setupDeployment()
         then:
         setupSuccess
+        Unirest.get(baseurl).asEmpty().status == 200
+        jsmDep.jsmContainer.inspectContainer().networkSettings.ports.find {it.key == "$port/tcp"}
+
+
+
+        where:
+        baseurl | port
+        jira2BaseUrl | "8082"
+        jiraBaseUrl | "8080"
 
     }
 
 
-    def "test non default domain name and port"() {
 
-        setup:
-        String
-        JsmH2Deployment jsmDep = new JsmH2Deployment(jira2BaseUrl)
-        jsmDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
-        jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
-
-        expect:
-        jsmDep.setupDeployment()
-        ContainerInspectResponse inspectResponse = jsmDep.jsmContainer.inspectContainer()
-
-        inspectResponse.networkSettings.ports.find {it.key == "8082/tcp"}
-        Unirest.get(jira2BaseUrl).asEmpty().status == 200
-
-    }
 
 
 }
