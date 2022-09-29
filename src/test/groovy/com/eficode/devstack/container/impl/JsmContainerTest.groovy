@@ -1,6 +1,6 @@
 package com.eficode.devstack.container.impl
 
-
+import com.eficode.devstack.DevStackSpec
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
@@ -16,26 +16,25 @@ import spock.lang.Specification
 import java.nio.file.Files
 import java.nio.file.Path
 
-class JsmContainerTest extends Specification {
-
-    @Shared
-    static Logger log = LoggerFactory.getLogger(JsmContainerTest.class)
-
-    @Shared
-    DockerClientImpl dockerClient
-
-
-    @Shared
-    String dockerRemoteHost = "https://docker.domain.se:2376"
-    @Shared
-    String dockerCertPath = "resources/dockerCert"
+class JsmContainerTest extends DevStackSpec {
 
 
     def setupSpec() {
+
+        dockerRemoteHost = "https://docker.domain.se:2376"
+        dockerCertPath = "resources/dockerCert"
+
         dockerClient = resolveDockerClient()
-        dockerClient.stop("JSM")
-        dockerClient.rm("JSM")
+
+        log = LoggerFactory.getLogger(JsmContainerTest.class)
+
+        dockerClient = resolveDockerClient()
+
+        containerNames = ["jira.domain.se", "JSM", "Spoc-JSM"]
+        containerPorts = [8080]
     }
+
+
 
     def "test isCreated"() {
 
@@ -63,8 +62,6 @@ class JsmContainerTest extends Specification {
         !jsm.isCreated()
         log.info("\tisCreated now again returns false")
 
-        cleanup:
-        containerId ? dockerClient.rm(containerId) : ""
 
     }
 
@@ -104,8 +101,6 @@ class JsmContainerTest extends Specification {
         assert containerInspect.hostConfig.portBindings.containsKey("8080/tcp") : "JSM Container port binding was not setup correctly"
         log.info("\tJSM Container was setup correctly")
 
-        cleanup:
-        containerId ? dockerClient.rm(containerId) : ""
 
 
     }
@@ -130,8 +125,6 @@ class JsmContainerTest extends Specification {
         assert dockerClient.inspectImage(containerInspect.image).content.repoTags.find {it == "atlassian/jira-servicemanagement:4-ubuntu-jdk11"} : "JSM container was created with incorrect Docker image"
         log.info("\tJSM Container was setup correctly")
 
-        cleanup:
-        containerId ? dockerClient.rm(containerId) : ""
 
 
     }
@@ -227,75 +220,13 @@ class JsmContainerTest extends Specification {
         assert hashOutput == [ fileHash + "  " + containerDstDir + largestFile.name] : "Output from container is not formatted as expected"
 
 
-        then:
-        true
 
         cleanup:
-        jsm.stopAndRemoveContainer() ? log.info("\tDeleted JSM container") : log.info("\tError deleting JSM container")
         log.info("\tDeleting temp dir:" + tempDir.toString())
         FileUtils.deleteDirectory(tempDir.toFile())
     }
 
 
 
-    DockerClientImpl resolveDockerClient() {
 
-        if (this.dockerClient) {
-            return this.dockerClient
-        }
-
-        log.info("Getting Docker client")
-
-        if (!dockerRemoteHost) {
-            log.info("\tNo remote host configured, returning local docker connection")
-            return new DockerClientImpl()
-        }
-
-        File certDir = new File(dockerCertPath)
-
-        if (!certDir.isDirectory()) {
-            log.info("\tNo valid Docker Cert Path given, returning local docker connection")
-            return new DockerClientImpl()
-        }
-        log.info("\tLooking for docker certs in:" + certDir.absolutePath)
-        ArrayList<File> pemFiles = FileUtils.listFiles(certDir, ["pem"] as String[], false)
-        log.debug("\t\tFound pem files:" + pemFiles.name.join(","))
-
-
-        if (!pemFiles.empty && pemFiles.every { pemFile -> ["ca.pem", "cert.pem", "key.pem"].find { it == pemFile.name } }) {
-            log.info("\tFound Docker certs, returning Secure remote Docker connection")
-            try {
-                DockerClientImpl dockerClient = setupSecureRemoteConnection(dockerRemoteHost, dockerCertPath)
-                assert dockerClient.ping().content as String == "OK": "Error pinging remote Docker engine"
-                return dockerClient
-            } catch (ex) {
-                log.error("\tError setting up connection to remote Docker engine:" + ex.message)
-                log.info("\tReturning local Docker connection")
-                return new DockerClientImpl()
-            }
-
-        }
-
-        log.info("\tMissing Docker certs, returning local docker connection")
-
-        return new DockerClientImpl()
-
-    }
-
-    /**
-     * Replaced the default docker connection (local) with a remote, secure one
-     * @param host ex: "https://docker.domain.se:2376"
-     * @param certPath folder containing ca.pem, cert.pem, key.pem
-     */
-    static DockerClientImpl setupSecureRemoteConnection(String host, String certPath) {
-
-        DockerClientConfig dockerConfig = new DockerClientConfig(host)
-        DockerEnv dockerEnv = new DockerEnv(host)
-        dockerEnv.setCertPath(certPath)
-        dockerEnv.setTlsVerify("1")
-        dockerConfig.apply(dockerEnv)
-
-        return new DockerClientImpl(dockerConfig)
-
-    }
 }
