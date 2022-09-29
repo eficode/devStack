@@ -20,6 +20,7 @@ class BitbucketH2Deployment implements Deployment{
         this.bitbucketRest = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
         this.containers = [new BitbucketContainer()]
         bitbucketContainer.containerName = bitbucketContainer.extractDomainFromUrl(bitbucketBaseUrl)
+        bitbucketContainer.containerMainPort = bitbucketContainer.extractPortFromUrl(bitbucketBaseUrl)
 
     }
 

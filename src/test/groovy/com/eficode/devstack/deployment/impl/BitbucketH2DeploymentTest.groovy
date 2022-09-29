@@ -1,29 +1,24 @@
 package com.eficode.devstack.deployment.impl
 
+import com.eficode.devstack.DevStackSpec
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
+import kong.unirest.Unirest
 import org.apache.commons.io.FileUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
-class BitbucketH2DeploymentTest extends Specification{
-
-    @Shared
-    static Logger log = LoggerFactory.getLogger(BitbucketH2DeploymentTest.class)
-
-    @Shared
-    DockerClientImpl dockerClient
+class BitbucketH2DeploymentTest extends DevStackSpec{
 
 
-    @Shared
-    String dockerRemoteHost = "https://docker.domain.se:2376"
-    @Shared
-    String dockerCertPath = "resources/dockerCert"
     @Shared
     String bitbucketBaseUrl = "http://bitbucket.domain.se:7990"
+
+    @Shared
+    String bitbucket2BaseUrl = "http://bitbucket2.domain.se:7992"
 
     @Shared
     File bitbucketLicenseFile = new File("resources/bitbucket/licenses/bitbucketLicense")
@@ -31,16 +26,26 @@ class BitbucketH2DeploymentTest extends Specification{
     def setupSpec() {
 
 
+        dockerRemoteHost = "https://docker.domain.se:2376"
+        dockerCertPath = "resources/dockerCert"
+
         dockerClient = resolveDockerClient()
-        dockerClient.stop("Bitbucket")
-        dockerClient.rm("Bitbucket")
+
+        log = LoggerFactory.getLogger(BitbucketH2DeploymentTest.class)
+
+        dockerClient = resolveDockerClient()
+
+        containerNames = ["bitbucket.domain.se", "bitbucket2.domain.se"]
+        containerPorts = [7990, 7992]
+
+        disableCleanupAfter = false
     }
 
 
-    def "def setupDeployment"() {
+    def "def setupDeployment"(String baseUrl, String port) {
 
         setup:
-        BitbucketH2Deployment  bitbucketDep = new BitbucketH2Deployment(bitbucketBaseUrl)
+        BitbucketH2Deployment  bitbucketDep = new BitbucketH2Deployment(baseUrl)
         bitbucketDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
         bitbucketDep.setBitbucketLicence(bitbucketLicenseFile)
         bitbucketDep.stopAndRemoveDeployment()
@@ -51,6 +56,15 @@ class BitbucketH2DeploymentTest extends Specification{
 
         then:
         setupSuccess
+        Unirest.get(baseUrl).asEmpty().status == 200
+        bitbucketDep.bitbucketContainer.inspectContainer().networkSettings.ports.find {it.key == "$port/tcp"}
+
+
+        where:
+        baseUrl | port
+        bitbucket2BaseUrl | 7992
+        bitbucketBaseUrl | 7990
+
 
     }
 
