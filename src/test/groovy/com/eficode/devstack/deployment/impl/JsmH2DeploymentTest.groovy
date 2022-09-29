@@ -4,6 +4,9 @@ import com.eficode.devstack.DevStackSpec
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
+import de.gesellix.docker.remote.api.ContainerInspectResponse
+import kong.unirest.HttpResponse
+import kong.unirest.Unirest
 import org.apache.commons.io.FileUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -15,6 +18,10 @@ class JsmH2DeploymentTest extends DevStackSpec {
 
     @Shared
     String jiraBaseUrl = "http://jira.domain.se:8080"
+
+    @Shared
+    String jira2BaseUrl = "http://jira2.domain.se:8082"
+
 
     @Shared
     File projectRoot = new File(".")
@@ -30,36 +37,40 @@ class JsmH2DeploymentTest extends DevStackSpec {
 
         dockerClient = resolveDockerClient()
 
-        containerNames = ["jira.domain.se"]
-        containerPorts = [8080]
+        containerNames = ["jira.domain.se", "jira2.domain.se"]
+        containerPorts = [8080, 8082]
+
+        disableCleanupAfter = false
 
 
-        dockerClient = resolveDockerClient()
-        dockerClient.stop("JSM")
-        dockerClient.rm("JSM")
     }
 
-    def "test setupDeployment"() {
+    def "test setupDeployment"(String baseurl, String port) {
         setup:
 
-        JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl)
+        JsmH2Deployment jsmDep = new JsmH2Deployment(baseurl)
         jsmDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
 
         jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
         jsmDep.appsToInstall = [
-                "https://marketplace.atlassian.com/download/apps/6820/version/1005740"  : new File(projectRoot.path + "/resources/jira/licenses/scriptrunnerForJira.license").text,
-                "https://marketplace.atlassian.com/download/apps/6572/version/1311472"  : new File(projectRoot.path + "/resources/jira/licenses/tempoTimeSheets.license").text,
                 "https://marketplace.atlassian.com/download/apps/1211542/version/302030": ""
         ]
 
         when:
+
         boolean setupSuccess = jsmDep.setupDeployment()
         then:
         setupSuccess
+        Unirest.get(baseurl).asEmpty().status == 200
+        jsmDep.jsmContainer.inspectContainer().networkSettings.ports.find {it.key == "$port/tcp"}
 
-        //cleanup:
 
-        //jsmDep.containers.each {it.stopAndRemoveContainer()}
+
+        where:
+        baseurl | port
+        jira2BaseUrl | "8082"
+        jiraBaseUrl | "8080"
+
     }
 
 

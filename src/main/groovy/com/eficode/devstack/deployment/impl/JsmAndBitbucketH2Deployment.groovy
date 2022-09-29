@@ -155,6 +155,12 @@ class JsmAndBitbucketH2Deployment implements Deployment{
             log.info("\tJSM deployment finished successfully:" + jsmFuture.get())
         }
 
+        if(jiraAppsToInstall) {
+            installJiraApps()
+        }
+
+
+
         return jsmFuture.get() && bitbucketFuture.get()
 
     }
@@ -172,10 +178,10 @@ class JsmAndBitbucketH2Deployment implements Deployment{
      * @param appsAndLicenses key = App url (from marketplace), value = license string (optional)
      * @return true if no apps where installed, or apps where installed successfully
      */
-    boolean installApps(Map<String,String> appsAndLicenses = jiraAppsToInstall ) {
+    boolean installJiraApps(Map<String,String> appsAndLicenses = jiraAppsToInstall ) {
 
         if (appsAndLicenses) {
-            log.info("Installing ${appsAndLicenses.size()} app(s)")
+            log.info("Installing ${appsAndLicenses.size()}  jiraapp(s)")
             appsAndLicenses.each {url, license ->
                 assert jiraRest.installApp(url, license) : "Error installing app:" + url
             }

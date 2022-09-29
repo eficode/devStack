@@ -26,6 +26,9 @@ class DevStackSpec extends Specification{
     @Shared
     ArrayList<Integer> containerPorts
 
+    @Shared
+    boolean disableCleanupAfter = false
+
 
     @Shared
     static Logger log = LoggerFactory.getLogger(this.class)
@@ -36,11 +39,16 @@ class DevStackSpec extends Specification{
     }
 
     def cleanup() {
-        cleanupContainers()
+        if (!disableCleanupAfter) {
+            cleanupContainers()
+        }
+
     }
 
     def cleanupSpec() {
-        cleanupContainers()
+        if (!disableCleanupAfter) {
+            cleanupContainers()
+        }
     }
 
 

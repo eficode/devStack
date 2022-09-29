@@ -47,7 +47,7 @@ trait Deployment {
         log.info("Stopping and removing deployment: " + this.getFriendlyName())
 
 
-        this.getContainers().each { container ->
+        this.getContainers().findAll {it != null}.each { container ->
             log.debug("\tStopping container:" + container.containerName)
             assert container.stopAndRemoveContainer(0): "Error stopping container:" + container.containerId
         }

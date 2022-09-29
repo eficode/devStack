@@ -6,7 +6,7 @@
 
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.2.0-SNAPSHOT</version>
 
     <name>DevStack - Parent pom</name>
 
@@ -54,6 +54,7 @@
             <version>1.1.0-SNAPSHOT</version>
         </dependency>
 
+
         <dependency>
             <groupId>de.gesellix</groupId>
             <artifactId>docker-client</artifactId>
@@ -98,6 +99,10 @@
         <repository>
             <id>eficode-github-BitbucketInstanceManagerRest</id>
             <url>https://github.com/eficode/BitbucketInstanceManagerRest/raw/packages/repository/</url>
+        </repository>
+        <repository>
+            <id>eficode-github-JiraShortcuts</id>
+            <url>https://github.com/eficode/JiraShortcuts/raw/packages/repository/</url>
         </repository>
     </repositories>
 

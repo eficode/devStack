@@ -48,7 +48,7 @@ class BitbucketContainer implements Container{
 
     }
 
-    String createBbContainer(String containerName = this.containerName, String imageName = containerImage, String imageTag = containerImageTag, long maxRamMB = jvmMaxRam, String mainPort = containerMainPort) {
+    String createBbContainer(String containerName = this.containerName, String imageName = containerImage, String imageTag = containerImageTag, long maxRamMB = jvmMaxRam, String mainPort = containerMainPort, String baseUrl = this.containerName) {
 
         assert dockerClient.ping().content as String == "OK", "Error Connecting to docker service"
 
@@ -56,9 +56,9 @@ class BitbucketContainer implements Container{
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = imageName + ":" + imageTag
-            c.env = ["JVM_MAXIMUM_MEMORY=" + maxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((maxRamMB / 2) as String) + "m"]
+            c.env = ["JVM_MAXIMUM_MEMORY=" + maxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((maxRamMB / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl]
             c.exposedPorts = [(mainPort + "/tcp"): [:]]
-            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(mainPort + "/tcp"): [new PortBinding("0.0.0.0", (mainPort.toString()))]] }
+            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [("7990/tcp"): [new PortBinding("0.0.0.0", (mainPort.toString()))]] }
             c.hostname = containerName
 
         }
@@ -76,7 +76,7 @@ class BitbucketContainer implements Container{
 
     boolean runOnFirstStartup() {
         log.debug("\tUpdating apt and installing dependencies")
-        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping; echo status: \$?", 20).any {it.contains("status: 0")}
+        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping net-tools; echo status: \$?", 300).any {it.contains("status: 0")}
 
         return true
     }

@@ -11,7 +11,7 @@ class JsmContainer implements Container {
 
     String containerName = "JSM"
     String containerMainPort = "8080"
-    ArrayList <String> customEnvVar = [] //Ex: ["key=value", "PATH=/user/local/sbin"]
+    ArrayList<String> customEnvVar = []
     String containerImage = "atlassian/jira-servicemanagement"
     String containerImageTag = "latest"
     long jvmMaxRam = 6000
@@ -57,7 +57,7 @@ class JsmContainer implements Container {
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = imageName + ":" + imageTag
-            c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m"] + customEnvVar
+            c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m" , "ATL_TOMCAT_PORT=" + jsmPort] + customEnvVar
             c.exposedPorts = [(jsmPort + "/tcp"): [:]]
             c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(jsmPort + "/tcp"): [new PortBinding("0.0.0.0", (jsmPort))]] }
             c.hostname = containerName.toLowerCase()
@@ -99,7 +99,7 @@ class JsmContainer implements Container {
         log.debug("\tCreating folders needed for running Spoc tests with ScriptRunner")
         assert runBashCommandInContainer("mkdir  /opt/atlassian/jira/surefire-reports ; chown jira:jira  /opt/atlassian/jira/surefire-reports").empty
         log.debug("\tUpdating apt and installing dependencies")
-        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping; echo status: \$?", 20).any {it.contains("status: 0")}
+        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping; echo status: \$?", 300).any {it.contains("status: 0")}
 
         return true
 

@@ -30,6 +30,8 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import java.util.regex.Matcher
+import java.util.regex.Pattern
 
 trait Container {
 
@@ -56,8 +58,6 @@ trait Container {
                 }
         )
     }
-
-
 
 
     abstract String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint)
@@ -126,7 +126,7 @@ trait Container {
         ArrayList<ContainerSummary> containers = dockerClient.ps().content
 
         ContainerSummary matchingContainer = containers.find { it.names.first() == "/" + self.containerName }
-        this.containerId = matchingContainer.id
+        this.containerId = matchingContainer?.id
         log.info("\tGot:" + this.containerId)
 
         return containerId
@@ -147,6 +147,7 @@ trait Container {
         }
 
         setContainerNetworks([network])
+
         dockerClient.startContainer(self.containerId)
 
 
@@ -192,11 +193,10 @@ trait Container {
         ContainerInspectResponse inspectResponse = inspectContainer()
         ArrayList<String> ips = inspectResponse.networkSettings.networks.values().ipAddress
 
-        if (inspectResponse.networkSettings.ipAddress != null ) {
+        if (inspectResponse.networkSettings.ipAddress != null) {
             ips.add(inspectResponse.networkSettings.ipAddress)
             ips.unique(true)
         }
-
 
 
         return ips
@@ -233,7 +233,8 @@ trait Container {
             }
             return false
         } else {
-            return false
+            log.info("\tContainer not setup, nothing to remove")
+            return true
         }
 
 
@@ -417,12 +418,12 @@ trait Container {
         Map<String, EndpointSettings> rawResponse = inspectContainer().networkSettings.networks
 
         ArrayList<Network> networks = []
-        rawResponse.keySet().each {networkId ->
+        rawResponse.keySet().each { networkId ->
             Network network = getNetwork(networkId)
 
             if (network != null) {
                 networks.add(network)
-            }else if (networkId) {
+            } else if (networkId) {
                 //Handle networks that the container is attached to but that have been deleted
                 Network deletedNetwork = new Network()
                 deletedNetwork.id = networkId
@@ -437,7 +438,7 @@ trait Container {
     ArrayList<Network> getContainerBridgeNetworks() {
 
 
-        return getContainerNetworks().findAll {it.driver == "bridge"}
+        return getContainerNetworks().findAll { it.driver == "bridge" }
 
     }
 
@@ -448,7 +449,7 @@ trait Container {
      * @param network
      * @return true on success
      */
-    boolean connectContainerToNetwork(Network network) throws InputMismatchException{
+    boolean connectContainerToNetwork(Network network) throws InputMismatchException {
 
 
         log.info("Connecting container $containerId to network:" + network.name)
@@ -493,7 +494,7 @@ trait Container {
      * @param newNetworks A list of the networks that the container should be connected to
      * @return true on success
      */
-    boolean setContainerNetworks(ArrayList<Network> newNetworks) throws InputMismatchException, AssertionError{
+    boolean setContainerNetworks(ArrayList<Network> newNetworks) throws InputMismatchException, AssertionError {
 
         log.info("Setting container networks")
         log.info("\tBeginning by disconnecting any networks it should no longer be connected to")
@@ -508,7 +509,7 @@ trait Container {
         }
         log.info("\tFinished disconnecting container from unwanted networks, now connecting to new networks")
 
-        ArrayList<Network>connectedNetworks = containerNetworks
+        ArrayList<Network> connectedNetworks = containerNetworks
         newNetworks.each { wantedNetwork ->
 
             if (connectedNetworks.id.find { wantedNetwork.id }) {
@@ -591,6 +592,24 @@ trait Container {
     }
 
 
+    /**
+     * Gets the port from a URL
+     * @param url
+     * @return
+     */
+    String extractPortFromUrl(String url) {
+        Pattern pattern = Pattern.compile(".*?:(\\d+)")
+
+        Matcher matcher = pattern.matcher(url)
+        if (matcher.find() && matcher.groupCount() > 0) {
+            return matcher.group(1)
+        } else if (url.startsWith("https")) {
+            return "443"
+        } else {
+            return "80"
+        }
+
+    }
 
     String extractDomainFromUrl(String url) {
         String out = url.replaceFirst(/^https?:\/\//, "") //Remove protocol
@@ -598,7 +617,6 @@ trait Container {
         out = out.replaceFirst(/\/.*/, "") //Remove subdomain
         return out
     }
-
 
 
 }

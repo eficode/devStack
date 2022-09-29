@@ -21,31 +21,50 @@ jobs:
         with:
           java-version: '11'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          cache: "maven"
 
       #Manually first (once) set up an orphaned branch:
       # git switch --orphan packages
       # git commit --allow-empty -m "Initial commit on packages branch"
       # git push origin packages:packages
 
-      - name: Install Package to packages branch
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Installing parent pom file
         run: |
-          mkdir localm2
+          
+        
           mkdir -p repository/com/eficode/devstack
           
           echo Installing parent pom file
-          mvn install:install-file -Dpackaing=pom -Dfile=pom.xml -DpomFile=pom.xml -Dmaven.repo.local=localm2/ -DcreateChecksum=true
+          mvn install:install-file -Dpackaing=pom -Dfile=pom.xml -DpomFile=pom.xml -DcreateChecksum=true
+
+      - name: Installing Groovy 2.5 Version
+        run: |
           
           echo Compiling, Packaging and Installing Groovy 2.5 version of library to local m2 directory
-          mvn install -f pom-2.5.xml -Dmaven.repo.local=localm2/ -DcreateChecksum=true
+          mvn install -f pom-2.5.xml -DcreateChecksum=true
+
+      - name: Installing Groovy 3 Version
+        run: |
           
           echo Compiling, Packaging and Installing Groovy 3.0 version of library to local m2 directory
-          mvn install -f pom-3.0.xml -Dmaven.repo.local=localm2/ -DcreateChecksum=true
-          
+          mvn install -f pom-3.0.xml  -DcreateChecksum=true
+
+
+      - name: Copying JAR files
+        run: |
           echo Copying the new JAR files to repository which will be added to git branch "packages"
-          rsync -avh --checksum localm2/com/eficode/devstack repository/com/eficode/devstack
-          
+          rsync -avh --checksum ~/.m2/repository/com/eficode/devstack/ repository/com/eficode/devstack/
+
+      - name: Committing and pushing JAR files
+        run: |
           
           git config user.name github-actions
           git config user.email github-actions@github.com
