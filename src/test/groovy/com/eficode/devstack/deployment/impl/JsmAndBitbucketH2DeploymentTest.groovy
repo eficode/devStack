@@ -60,6 +60,10 @@ class JsmAndBitbucketH2DeploymentTest extends Specification{
         JsmAndBitbucketH2Deployment jsmAndBb = new JsmAndBitbucketH2Deployment(jiraBaseUrl, bitbucketBaseUrl)
         jsmAndBb.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
 
+        jsmAndBb.jiraAppsToInstall = [
+                "https://marketplace.atlassian.com/download/apps/6820/version/1005740"  : new File("resources/jira/licenses/scriptrunnerForJira.license").text
+        ]
+
         jsmAndBb.bitbucketLicense = bitbucketLicenseFile
         jsmAndBb.jiraLicense = jsmLicenseFile
 
