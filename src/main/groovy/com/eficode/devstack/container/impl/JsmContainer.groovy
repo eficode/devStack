@@ -57,7 +57,7 @@ class JsmContainer implements Container {
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = imageName + ":" + imageTag
-            c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m"] + customEnvVar
+            c.env = ["JVM_MAXIMUM_MEMORY=" + jsmMaxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((jsmMaxRamMB / 2) as String) + "m" , "ATL_TOMCAT_PORT=" + jsmPort] + customEnvVar
             c.exposedPorts = [(jsmPort + "/tcp"): [:]]
             c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(jsmPort + "/tcp"): [new PortBinding("0.0.0.0", (jsmPort))]] }
             c.hostname = containerName.toLowerCase()

@@ -31,6 +31,11 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.eficode.atlassian</groupId>
+            <artifactId>JiraShortcuts</artifactId>
+            <version>2.0-SNAPSHOT-groovy-3.0</version>
+        </dependency>
 
 
         <dependency>

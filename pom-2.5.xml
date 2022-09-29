@@ -32,6 +32,13 @@
         </dependency>
 
 
+        <dependency>
+            <groupId>com.eficode.atlassian</groupId>
+            <artifactId>JiraShortcuts</artifactId>
+            <version>2.0-SNAPSHOT-groovy-2.5</version>
+        </dependency>
+
+
 
         <dependency>
             <groupId>com.eficode.atlassian</groupId>

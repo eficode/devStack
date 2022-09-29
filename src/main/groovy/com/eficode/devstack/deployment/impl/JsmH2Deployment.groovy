@@ -19,7 +19,8 @@ class JsmH2Deployment implements Deployment{
         this.jiraBaseUrl = jiraBaseUrl
         this.jiraRest = new JiraInstanceManagerRest(jiraBaseUrl)
         this.containers = [new JsmContainer()]
-        getJsmContainer().containerName = jsmContainer.extractDomainFromUrl(jiraBaseUrl)
+        jsmContainer.containerName = jsmContainer.extractDomainFromUrl(jiraBaseUrl)
+        jsmContainer.containerMainPort = jsmContainer.extractPortFromUrl(jiraBaseUrl)
     }
 
     JsmContainer getJsmContainer() {
