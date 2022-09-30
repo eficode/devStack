@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Sep 30 08:40:32 UTC 2022
+devstack-1.2.1-SNAPSHOT-groovy-2.5.pom>=
+devstack-1.2.1-SNAPSHOT-groovy-2.5.jar>=
+devstack-1.2.1-SNAPSHOT-groovy-2.5-standalone.jar>=
+devstack-1.2.1-SNAPSHOT-groovy-2.5-test-sources.jar>=
+devstack-1.2.1-SNAPSHOT-groovy-2.5-sources.jar>=
