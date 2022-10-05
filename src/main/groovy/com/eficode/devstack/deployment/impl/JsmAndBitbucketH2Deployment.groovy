@@ -168,26 +168,29 @@ class JsmAndBitbucketH2Deployment implements Deployment {
             log.info("\t\tFinished installing JiraShortcuts JIRA Apps")
         }
 
-        log.info("\tSetting up application between JIRA and Bitbucket")
-        String appLinkScript = new File("src/main/resources/instanceScripts/jira/SetupApplicationLink.groovy").text
-        appLinkScript = appLinkScript.replaceFirst("BITBUCKET_URL", bitbucketBaseUrl)
-        appLinkScript = appLinkScript.replaceFirst("BITBUCKET_USER", "admin")
-        appLinkScript = appLinkScript.replaceFirst("BITBUCKET_PASSWORD", "admin")
+        if (jiraRest.scriptRunnerIsInstalled()) {
+            log.info("\tSetting up application link between JIRA and Bitbucket")
 
 
-        log.trace("\t\tUsing Script:")
-        appLinkScript.eachLine {line ->
-            log.trace("\t"*3 + line)
+            String appLinkScript = getClass().getResourceAsStream("/instanceScripts/jira/SetupApplicationLink.groovy").text
+            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_URL", bitbucketBaseUrl)
+            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_USER", "admin")
+            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_PASSWORD", "admin")
+
+            log.trace("\t\tUsing Script:")
+            appLinkScript.eachLine {line ->
+                log.trace("\t"*3 + line)
+            }
+
+            Map appLinkResult = jiraRest.executeLocalScriptFile(appLinkScript)
+            log.debug("\t\tFinished executing application link script")
+            log.trace("\t"* 3 + "Script returned logs:")
+            appLinkResult.log.each {log.trace("\t"*4 + it)}
+
+            assert appLinkResult.log.any {it.contains("Created Bitbucket Application Link")}  : "Error creating application link from JIRA to bitbucket"
+            assert appLinkResult.success : "Error creating application link from JIRA to bitbucket"
+            log.info("\tFinished setting up application between JIRA and Bitbucket successfully")
         }
-
-        Map appLinkResult = jiraRest.executeLocalScriptFile(appLinkScript)
-        log.debug("\t\tFinished executing application link script")
-        log.trace("\t"* 3 + "Script returned logs:")
-        appLinkResult.log.each {log.trace("\t"*4 + it)}
-
-        assert appLinkResult.log.any {it.contains("Created Bitbucket Application Link")}  : "Error creating application link from JIRA to bitbucket"
-        assert appLinkResult.success : "Error creating application link from JIRA to bitbucket"
-        log.info("\tFinished setting up application between JIRA and Bitbucket successfully")
 
 
         return jsmFuture.get() && bitbucketFuture.get()
