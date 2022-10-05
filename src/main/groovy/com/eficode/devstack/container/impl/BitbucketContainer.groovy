@@ -56,9 +56,9 @@ class BitbucketContainer implements Container{
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = imageName + ":" + imageTag
-            c.env = ["JVM_MAXIMUM_MEMORY=" + maxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((maxRamMB / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl]
+            c.env = ["JVM_MAXIMUM_MEMORY=" + maxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((maxRamMB / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl , "SERVER_PORT=" + mainPort]
             c.exposedPorts = [(mainPort + "/tcp"): [:]]
-            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [("7990/tcp"): [new PortBinding("0.0.0.0", (mainPort.toString()))]] }
+            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(mainPort + "/tcp"): [new PortBinding("0.0.0.0", (mainPort.toString()))]] }
             c.hostname = containerName
 
         }

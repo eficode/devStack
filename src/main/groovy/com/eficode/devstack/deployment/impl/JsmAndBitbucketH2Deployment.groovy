@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
-class JsmAndBitbucketH2Deployment implements Deployment{
+class JsmAndBitbucketH2Deployment implements Deployment {
 
     String friendlyName = "JIRA and Bitbucket H2 Deployment"
     String containerNetworkName = "jsm_and_bitbucket"
@@ -39,11 +39,9 @@ class JsmAndBitbucketH2Deployment implements Deployment{
         this.subDeployments = [new JsmH2Deployment(jiraBaseUrl), new BitbucketH2Deployment(bitbucketBaseUrl)]
 
 
-
-
     }
 
-    ArrayList<Container>getContainers() {
+    ArrayList<Container> getContainers() {
         return [jsmContainer, bitbucketContainer]
     }
 
@@ -52,7 +50,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
     }
 
     JsmH2Deployment getJsmH2Deployment() {
-        return subDeployments.find{it instanceof JsmH2Deployment} as JsmH2Deployment
+        return subDeployments.find { it instanceof JsmH2Deployment } as JsmH2Deployment
     }
 
     JsmContainer getJsmContainer() {
@@ -60,7 +58,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
     }
 
     BitbucketH2Deployment getBitbucketH2Deployment() {
-        return subDeployments.find{it instanceof BitbucketH2Deployment} as BitbucketH2Deployment
+        return subDeployments.find { it instanceof BitbucketH2Deployment } as BitbucketH2Deployment
     }
 
     BitbucketContainer getBitbucketContainer() {
@@ -98,7 +96,6 @@ class JsmAndBitbucketH2Deployment implements Deployment{
      */
 
 
-
     private class SetupDeploymentTask implements Callable<Boolean> {
 
         Deployment deployment
@@ -117,8 +114,8 @@ class JsmAndBitbucketH2Deployment implements Deployment{
 
         log.info("Setting up deployment:" + friendlyName)
 
-        assert jiraLicense : "Error no Jira License has been setup"
-        assert bitbucketLicense : "Error no Bitbucket License has been setup"
+        assert jiraLicense: "Error no Jira License has been setup"
+        assert bitbucketLicense: "Error no Bitbucket License has been setup"
 
         jsmH2Deployment.setJiraLicense(new File(jiraLicense))
         bitbucketH2Deployment.setBitbucketLicence(new File(bitbucketLicense))
@@ -132,33 +129,68 @@ class JsmAndBitbucketH2Deployment implements Deployment{
         threadPool.shutdown()
 
 
-        while(!jsmFuture.done || !bitbucketFuture.done) {
+        while (!jsmFuture.done || !bitbucketFuture.done) {
             log.info("Waiting for deployments to finish")
             log.info("\tJSM Finished:" + jsmFuture.done)
             log.info("\tBitbucket Finished:" + bitbucketFuture.done)
 
-            if(bitbucketFuture.done) {
+            if (bitbucketFuture.done) {
                 log.info("\tBitbucket deployment finished successfully:" + bitbucketFuture.get())
             }
 
-            if(jsmFuture.done) {
+            if (jsmFuture.done) {
                 log.info("\tJSM deployment finished successfully:" + jsmFuture.get())
             }
 
             sleep(5000)
         }
-        if(bitbucketFuture.done) {
+        if (bitbucketFuture.done) {
             log.info("\tBitbucket deployment finished successfully:" + bitbucketFuture.get())
         }
 
-        if(jsmFuture.done) {
+        if (jsmFuture.done) {
             log.info("\tJSM deployment finished successfully:" + jsmFuture.get())
         }
 
-        if(jiraAppsToInstall) {
-            installJiraApps()
+        if (jiraAppsToInstall) {
+            log.info("\tInstalling user defined JIRA Apps")
+            assert installJiraApps(): "Error installing user defined JIRA apps"
+            log.info("\t\tFinished installing user defined JIRA Apps")
         }
 
+        if (!jiraAppsToInstall.any { it.key.contains("JiraShortcuts") }) {
+            log.info("\tInstalling JiraShortcuts app") //Needed for setting up applink to bitbucket
+            assert installJiraApps(
+                    [
+                            "https://github.com/eficode/JiraShortcuts/raw/packages/repository/com/eficode/atlassian/JiraShortcuts/2.0-SNAPSHOT-groovy-3.0/JiraShortcuts-2.0-SNAPSHOT-groovy-3.0.jar": ""
+                    ]
+            ) : "Error installing JiraShortcuts JIRA apps"
+            log.info("\t\tFinished installing JiraShortcuts JIRA Apps")
+        }
+
+        if (jiraRest.scriptRunnerIsInstalled()) {
+            log.info("\tSetting up application link between JIRA and Bitbucket")
+
+
+            String appLinkScript = getClass().getResourceAsStream("/instanceScripts/jira/SetupApplicationLink.groovy").text
+            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_URL", bitbucketBaseUrl)
+            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_USER", "admin")
+            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_PASSWORD", "admin")
+
+            log.trace("\t\tUsing Script:")
+            appLinkScript.eachLine {line ->
+                log.trace("\t"*3 + line)
+            }
+
+            Map appLinkResult = jiraRest.executeLocalScriptFile(appLinkScript)
+            log.debug("\t\tFinished executing application link script")
+            log.trace("\t"* 3 + "Script returned logs:")
+            appLinkResult.log.each {log.trace("\t"*4 + it)}
+
+            assert appLinkResult.log.any {it.contains("Created Bitbucket Application Link")}  : "Error creating application link from JIRA to bitbucket"
+            assert appLinkResult.success : "Error creating application link from JIRA to bitbucket"
+            log.info("\tFinished setting up application between JIRA and Bitbucket successfully")
+        }
 
 
         return jsmFuture.get() && bitbucketFuture.get()
@@ -168,7 +200,7 @@ class JsmAndBitbucketH2Deployment implements Deployment{
     @Override
     void setupSecureDockerConnection(String host, String certPath) {
 
-        subDeployments.each {deployment ->
+        subDeployments.each { deployment ->
             deployment.setupSecureDockerConnection(host, certPath)
         }
     }
@@ -178,19 +210,18 @@ class JsmAndBitbucketH2Deployment implements Deployment{
      * @param appsAndLicenses key = App url (from marketplace), value = license string (optional)
      * @return true if no apps where installed, or apps where installed successfully
      */
-    boolean installJiraApps(Map<String,String> appsAndLicenses = jiraAppsToInstall ) {
+    boolean installJiraApps(Map<String, String> appsAndLicenses = jiraAppsToInstall) {
 
         if (appsAndLicenses) {
             log.info("Installing ${appsAndLicenses.size()}  jiraapp(s)")
-            appsAndLicenses.each {url, license ->
-                assert jiraRest.installApp(url, license) : "Error installing app:" + url
+            appsAndLicenses.each { url, license ->
+                assert jiraRest.installApp(url, license): "Error installing app:" + url
             }
         }
 
         return true
 
     }
-
 
 
 }
