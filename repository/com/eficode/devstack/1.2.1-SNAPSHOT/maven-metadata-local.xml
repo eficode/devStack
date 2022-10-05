@@ -3,7 +3,7 @@
   <groupId>com.eficode</groupId>
   <artifactId>devstack</artifactId>
   <versioning>
-    <lastUpdated>20220930084014</lastUpdated>
+    <lastUpdated>20221005142527</lastUpdated>
     <snapshot>
       <localCopy>true</localCopy>
     </snapshot>
@@ -11,7 +11,7 @@
       <snapshotVersion>
         <extension>pom</extension>
         <value>1.2.1-SNAPSHOT</value>
-        <updated>20220930084014</updated>
+        <updated>20221005142527</updated>
       </snapshotVersion>
     </snapshotVersions>
   </versioning>
