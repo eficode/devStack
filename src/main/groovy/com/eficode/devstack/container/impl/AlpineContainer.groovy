@@ -35,43 +35,7 @@ class AlpineContainer implements Container {
     }
 
 
-    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
-
-        assert ping(): "Error connecting to docker engine"
-
-        ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
-
-            c.image = containerImage + ":" + containerImageTag
-            c.hostname = containerName
 
 
-        }
-
-        if (cmd.size()) {
-            containerCreateRequest.cmd = cmd
-        }
-
-        if (entrypoint.size()) {
-            containerCreateRequest.entrypoint = entrypoint
-        }
-
-        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, containerName)
-        assert response.content.warnings.isEmpty(): "Error when creating $containerName container:" + response.content.warnings.join(",")
-
-        containerId = response.content.id
-        return containerId
-
-    }
-
-    String createContainer() {
-        return createContainer([], [])
-    }
-
-
-
-    boolean runOnFirstStartup() {
-
-        return true
-    }
 
 }

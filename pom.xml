@@ -7,11 +7,12 @@
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
     <version>1.2.1-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
     <name>DevStack - Parent pom</name>
 
     <description>A series of scripts for setting up common developer application suites</description>
-    <packaging>pom</packaging>
+
 
 
     <dependencies>
@@ -22,8 +23,29 @@
             <groupId>org.codehaus.groovy</groupId>
             <artifactId>groovy</artifactId>
             <version>3.0.11</version>
-            <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-core</artifactId>
+            <version>2.2-groovy-3.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.eficode.atlassian</groupId>
+            <artifactId>JiraShortcuts</artifactId>
+            <version>2.0-SNAPSHOT-groovy-3.0</version>
+        </dependency>
+
+
+        <dependency>
+            <groupId>com.eficode.atlassian</groupId>
+            <artifactId>bitbucketinstancemanager</artifactId>
+            <version>0.0.3-SNAPSHOT-groovy-3.0</version>
+            <classifier>standalone</classifier>
+        </dependency>
+
+
 
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -221,7 +243,7 @@
                         <include>**/*Spec.class</include>
                         <include>**/*Test.java</include>
                     </includes>
-                    <skipTests>true</skipTests>
+                    <skipTests>false</skipTests>
                 </configuration>
             </plugin>
         </plugins>

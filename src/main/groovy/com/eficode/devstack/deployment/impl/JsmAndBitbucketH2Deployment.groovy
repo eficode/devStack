@@ -112,6 +112,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
 
     boolean setupDeployment() {
 
+
         log.info("Setting up deployment:" + friendlyName)
 
         assert jiraLicense: "Error no Jira License has been setup"
@@ -172,10 +173,13 @@ class JsmAndBitbucketH2Deployment implements Deployment {
             log.info("\tSetting up application link between JIRA and Bitbucket")
 
 
-            String appLinkScript = getClass().getResourceAsStream("/instanceScripts/jira/SetupApplicationLink.groovy").text
+            String appLinkScript = getClass().getResourceAsStream("/com/eficode/devstack/deployment/jira/scripts/CreateBitbucketLink.groovy").text
             appLinkScript = appLinkScript.replaceFirst("BITBUCKET_URL", bitbucketBaseUrl)
             appLinkScript = appLinkScript.replaceFirst("BITBUCKET_USER", "admin")
             appLinkScript = appLinkScript.replaceFirst("BITBUCKET_PASSWORD", "admin")
+
+
+
 
             log.trace("\t\tUsing Script:")
             appLinkScript.eachLine {line ->
@@ -187,7 +191,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
             log.trace("\t"* 3 + "Script returned logs:")
             appLinkResult.log.each {log.trace("\t"*4 + it)}
 
-            assert appLinkResult.log.any {it.contains("Created Bitbucket Application Link")}  : "Error creating application link from JIRA to bitbucket"
+            assert appLinkResult.log.any {it.contains("Created link:Bitbucket")}  : "Error creating application link from JIRA to bitbucket"
             assert appLinkResult.success : "Error creating application link from JIRA to bitbucket"
             log.info("\tFinished setting up application between JIRA and Bitbucket successfully")
         }

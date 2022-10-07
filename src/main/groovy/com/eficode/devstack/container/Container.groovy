@@ -1,18 +1,22 @@
 package com.eficode.devstack.container
 
 import de.gesellix.docker.client.DockerClientImpl
+import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.client.network.ManageNetworkClient
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
+import de.gesellix.docker.remote.api.ContainerCreateRequest
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.EndpointSettings
+import de.gesellix.docker.remote.api.HostConfig
 import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
 import de.gesellix.docker.remote.api.Network
 import de.gesellix.docker.remote.api.NetworkCreateRequest
+import de.gesellix.docker.remote.api.PortBinding
 import de.gesellix.docker.remote.api.core.ClientException
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
@@ -35,11 +39,14 @@ import java.util.regex.Pattern
 
 trait Container {
 
-    Logger log = LoggerFactory.getLogger(this.class)
+    Logger log = LoggerFactory.getLogger(self.class)
     DockerClientImpl dockerClient = new DockerClientImpl()
     ManageNetworkClient networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
     abstract String containerName
     abstract String containerMainPort
+    abstract String containerImage
+    abstract String containerImageTag
+    ArrayList<String> customEnvVar = []
     String containerNetworkName = "bridge"
     String defaultShell = "/bin/bash"
     String containerId
@@ -49,7 +56,7 @@ trait Container {
     void prepareBindMount(String sourceAbs, String target, boolean readOnly = true) {
         assert !isCreated(): "Bind mounts cant be prepared for already created container"
 
-        this.mounts.add(
+        self.mounts.add(
                 new Mount().tap { m ->
                     m.source = sourceAbs
                     m.target = target
@@ -60,11 +67,68 @@ trait Container {
     }
 
 
-    abstract String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint)
+    ContainerCreateRequest setupContainerCreateRequest() {
 
-    abstract String createContainer()
+        ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
-    abstract boolean runOnFirstStartup()
+            c.image = self.containerImage + ":" + self.containerImageTag
+
+            if (self.containerMainPort) {
+                c.exposedPorts = [(self.containerMainPort+"/tcp"): [:]]
+            }
+
+
+            c.hostConfig = new HostConfig().tap { h ->
+                if (self.containerMainPort) {
+                    h.portBindings = [(self.containerMainPort+"/tcp"): [new PortBinding("0.0.0.0", (self.containerMainPort))]]
+                }
+                h.mounts = self.mounts
+            }
+            c.hostname = self.containerName
+            c.env = self.customEnvVar
+
+
+        }
+
+        return containerCreateRequest
+
+    }
+
+    /**
+     * Create container and override default docker cmd and entrypoint
+     * @param cmd ex: ["sleep", "infinity"]
+     * @param entrypoint
+     * @return container id
+     */
+    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
+
+        assert ping(): "Error connecting to docker engine"
+
+        ContainerCreateRequest containerCreateRequest = setupContainerCreateRequest()
+
+        if (cmd.size()) {
+            containerCreateRequest.cmd = cmd
+        }
+
+        if (entrypoint.size()) {
+            containerCreateRequest.entrypoint = entrypoint
+        }
+
+        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, self.containerName)
+        assert response.content.warnings.isEmpty(): "Error when creating ${self.containerName} container:" + response.content.warnings.join(",")
+
+        containerId = response.content.id
+        return containerId
+
+    }
+
+    String createContainer() {
+        return createContainer([], [])
+    }
+
+    boolean runOnFirstStartup() {
+        return true
+    }
 
 
     /**
@@ -202,7 +266,7 @@ trait Container {
         return ips
     }
 
-    ContainerState.Status status() {
+    ContainerState.Status  status() {
         return inspectContainer().state.status
     }
 
@@ -618,5 +682,28 @@ trait Container {
         return out
     }
 
+    /**
+     * Set custom environmental variables. Must be set before creating container
+     * @param keyVar Ex: ["key=value", "PATH=/user/local/sbin"]
+     */
+    void setCustomEnvVar(ArrayList<String> keyVar) {
+
+        assert hasNeverBeenStarted(): "Error, cant set custom enviromental variables after creating container"
+
+        self.customEnvVar = keyVar
+    }
+
+
+    ArrayList<String> getContainerLogs() {
+
+        if (!self.containerId) {
+            return null
+        }
+
+        ContainerCallback callBack = new ContainerCallback()
+        dockerClient.manageContainer.logs(self.containerId, [follow:false], callBack, Duration.ofMillis(500))
+
+        return callBack.output
+    }
 
 }
