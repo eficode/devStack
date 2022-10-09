@@ -63,8 +63,8 @@ class DevStackSpec extends Specification{
         ArrayList<ContainerSummary> containers = dockerClient.ps().content
 
         log.debug("\tThere are currenlty ${containers.size()} containers")
-        log.debug("\tWill remove any container named:" + containerNames.join(","))
-        log.debug("\tWill remove any container bound to ports:" + containerPorts.join(","))
+        log.debug("\tWill remove any container named:" + containerNames?.join(","))
+        log.debug("\tWill remove any container bound to ports:" + containerPorts?.join(","))
         containers.each {container->
 
             boolean nameCollision = false

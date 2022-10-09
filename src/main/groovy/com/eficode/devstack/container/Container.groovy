@@ -56,14 +56,16 @@ trait Container {
     void prepareBindMount(String sourceAbs, String target, boolean readOnly = true) {
         assert !isCreated(): "Bind mounts cant be prepared for already created container"
 
-        self.mounts.add(
-                new Mount().tap { m ->
-                    m.source = sourceAbs
-                    m.target = target
-                    m.readOnly = readOnly
-                    m.type = Mount.Type.Bind
-                }
-        )
+        Mount newMount = new Mount().tap { m ->
+            m.source = sourceAbs
+            m.target = target
+            m.readOnly = readOnly
+            m.type = Mount.Type.Bind
+        }
+
+        if (!self.mounts.find { it.source == sourceAbs && it.target == target }) {
+            self.mounts.add(newMount)
+        }
     }
 
 
@@ -74,13 +76,13 @@ trait Container {
             c.image = self.containerImage + ":" + self.containerImageTag
 
             if (self.containerMainPort) {
-                c.exposedPorts = [(self.containerMainPort+"/tcp"): [:]]
+                c.exposedPorts = [(self.containerMainPort + "/tcp"): [:]]
             }
 
 
             c.hostConfig = new HostConfig().tap { h ->
                 if (self.containerMainPort) {
-                    h.portBindings = [(self.containerMainPort+"/tcp"): [new PortBinding("0.0.0.0", (self.containerMainPort))]]
+                    h.portBindings = [(self.containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (self.containerMainPort))]]
                 }
                 h.mounts = self.mounts
             }
@@ -100,7 +102,7 @@ trait Container {
      * @param entrypoint
      * @return container id
      */
-    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
+    String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint) {
 
         assert ping(): "Error connecting to docker engine"
 
@@ -165,9 +167,13 @@ trait Container {
 
     boolean isCreated() {
 
-        ArrayList<ContainerSummary> content = dockerClient.ps().content
-        ArrayList<String> containerNames = content.collect { it.names }.flatten()
-        return containerNames.find { it == "/" + self.containerName } != null
+        try {
+            ArrayList<ContainerSummary> content = dockerClient.ps().content
+            ArrayList<String> containerNames = content.collect { it.names }.flatten()
+            return containerNames.find { it == "/" + self.containerName } != null
+        } catch (ignored) {
+            return false
+        }
 
     }
 
@@ -266,7 +272,7 @@ trait Container {
         return ips
     }
 
-    ContainerState.Status  status() {
+    ContainerState.Status status() {
         return inspectContainer().state.status
     }
 
@@ -648,10 +654,11 @@ trait Container {
         }
 
 
+        long cmdStart = System.currentTimeMillis()
         ContainerCallback callBack = new ContainerCallback()
         EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, [self.defaultShell, "-c", command], callBack, Duration.ofSeconds(timeoutS))
 
-
+        log.trace("\tCommand finished after:" + ((System.currentTimeMillis()-cmdStart)/1000).round() + "s" )
         return callBack.output
     }
 
@@ -701,7 +708,7 @@ trait Container {
         }
 
         ContainerCallback callBack = new ContainerCallback()
-        dockerClient.manageContainer.logs(self.containerId, [follow:false], callBack, Duration.ofMillis(500))
+        dockerClient.manageContainer.logs(self.containerId, [follow: false], callBack, Duration.ofMillis(500))
 
         return callBack.output
     }
