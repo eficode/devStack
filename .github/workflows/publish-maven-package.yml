@@ -42,7 +42,7 @@ jobs:
         
           mkdir -p repository/com/eficode/devstack
           echo Compiling, Packaging and Installing Groovy 3.0 version of library to local m2 directory
-          mvn install -f pom-3.0.xml  -DcreateChecksum=true
+          mvn install -f pom.xml  -DcreateChecksum=true
           
          
 
