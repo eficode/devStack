@@ -1,17 +1,9 @@
 package com.eficode.devstack.deployment.impl
 
 import com.eficode.devstack.DevStackSpec
-import de.gesellix.docker.client.DockerClientImpl
-import de.gesellix.docker.engine.DockerClientConfig
-import de.gesellix.docker.engine.DockerEnv
-import de.gesellix.docker.remote.api.ContainerInspectResponse
-import kong.unirest.HttpResponse
 import kong.unirest.Unirest
-import org.apache.commons.io.FileUtils
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
-import spock.lang.Specification
 
 class JsmH2DeploymentTest extends DevStackSpec {
 
@@ -40,7 +32,7 @@ class JsmH2DeploymentTest extends DevStackSpec {
         containerNames = ["jira.domain.se", "jira2.domain.se"]
         containerPorts = [8080, 8082]
 
-        disableCleanupAfter = false
+        disableCleanup = false
 
 
     }

@@ -98,8 +98,8 @@ trait Container {
 
     /**
      * Create container and override default docker cmd and entrypoint
-     * @param cmd ex: ["sleep", "infinity"]
-     * @param entrypoint
+     * @param cmd:
+     * @param entrypoint ex: ["tail", "-f", "/dev/null"]
      * @return container id
      */
     String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint) {
@@ -206,6 +206,12 @@ trait Container {
 
 
         log.info("Preparing to start container: ${self.containerName} (${self.containerId})")
+
+        if (status() == ContainerState.Status.Running) {
+            log.info("\tContainer is already running")
+            return true
+        }
+
         boolean firstStartup = hasNeverBeenStarted()
 
 

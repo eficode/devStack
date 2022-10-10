@@ -2,16 +2,11 @@ package com.eficode.devstack.container.impl
 
 import com.eficode.atlassian.bitbucketInstanceManager.BitbucketInstanceManagerRest
 import com.eficode.devstack.DevStackSpec
-import de.gesellix.docker.client.DockerClientImpl
-import de.gesellix.docker.engine.DockerClientConfig
-import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
-import org.apache.commons.io.FileUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
-import spock.lang.Specification
 
 class BitbucketContainerTest extends DevStackSpec {
 
@@ -36,7 +31,7 @@ class BitbucketContainerTest extends DevStackSpec {
         containerNames = ["bitbucket.domain.se"]
         containerPorts = [7990]
 
-        disableCleanupAfter = false
+        disableCleanup = false
 
     }
 

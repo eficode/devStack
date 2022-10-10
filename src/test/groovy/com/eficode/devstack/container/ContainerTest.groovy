@@ -6,7 +6,6 @@ import de.gesellix.docker.remote.api.Network
 import groovy.io.FileType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import spock.lang.Specification
 
 class ContainerTest extends DevStackSpec {
 
@@ -28,7 +27,7 @@ class ContainerTest extends DevStackSpec {
         containerNames = ["spock-alpine1", "spock-alpine2"]
         containerPorts = []
 
-        disableCleanupAfter = false
+        disableCleanup = false
     }
 
 

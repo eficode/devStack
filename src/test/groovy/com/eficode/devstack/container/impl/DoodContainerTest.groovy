@@ -20,7 +20,7 @@ class DoodContainerTest extends DevStackSpec {
         containerNames = ["dood.domain.se"]
         containerPorts = []
 
-        disableCleanupAfter = true
+        disableCleanup = true
     }
 
     def "Test the basics"() {
@@ -28,7 +28,7 @@ class DoodContainerTest extends DevStackSpec {
         when:
         DoodContainer dc = new DoodContainer(dockerRemoteHost, dockerCertPath)
         dc.containerName = "dood.domain.se"
-        String containerId = dc.createContainer(["sleep", "infinity"], [])
+        String containerId = dc.createContainer([],["tail", "-f", "/dev/null"])
 
 
         then:

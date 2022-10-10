@@ -1,16 +1,8 @@
 package com.eficode.devstack.deployment.impl
 
 import com.eficode.devstack.DevStackSpec
-import com.eficode.devstack.container.impl.JsmContainer
-import de.gesellix.docker.client.DockerClientImpl
-import de.gesellix.docker.engine.DockerClientConfig
-import de.gesellix.docker.engine.DockerEnv
-import de.gesellix.docker.remote.api.ContainerSummary
-import org.apache.commons.io.FileUtils
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
-import spock.lang.Specification
 
 class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
 
@@ -40,7 +32,7 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
         containerNames = ["jira.domain.se", "jira2.domain.se", "bitbucket.domain.se", "bitbucket2.domain.se"]
         containerPorts = [8080, 8082, 7990, 7992]
 
-        disableCleanupAfter = true
+        disableCleanup = true
     }
 
     def "test setupDeployment"(String jiraBaseUrl, String jiraPort, String bitbucketBaseUrl, String bitbucketPort) {

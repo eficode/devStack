@@ -31,7 +31,7 @@ class AlpineContainer implements Container {
      * @return
      */
     String createSleepyContainer(){
-        return createContainer(["sleep", "infinity"], [])
+        return createContainer([],["tail", "-f", "/dev/null"])
     }
 
 

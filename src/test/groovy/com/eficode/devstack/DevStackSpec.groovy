@@ -1,6 +1,6 @@
 package com.eficode.devstack
 
-import com.eficode.devstack.deployment.impl.JsmH2DeploymentTest
+
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
@@ -27,7 +27,7 @@ class DevStackSpec extends Specification{
     ArrayList<Integer> containerPorts
 
     @Shared
-    boolean disableCleanupAfter = false
+    boolean disableCleanup = false
 
 
     @Shared
@@ -35,18 +35,20 @@ class DevStackSpec extends Specification{
 
 
     def setup() {
-        cleanupContainers()
+        if (!disableCleanup) {
+            cleanupContainers()
+        }
     }
 
     def cleanup() {
-        if (!disableCleanupAfter) {
+        if (!disableCleanup) {
             cleanupContainers()
         }
 
     }
 
     def cleanupSpec() {
-        if (!disableCleanupAfter) {
+        if (!disableCleanup) {
             cleanupContainers()
         }
     }
