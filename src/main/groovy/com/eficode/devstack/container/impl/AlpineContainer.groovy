@@ -31,47 +31,11 @@ class AlpineContainer implements Container {
      * @return
      */
     String createSleepyContainer(){
-        return createContainer(["sleep", "infinity"], [])
-    }
-
-
-    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
-
-        assert ping(): "Error connecting to docker engine"
-
-        ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
-
-            c.image = containerImage + ":" + containerImageTag
-            c.hostname = containerName
-
-
-        }
-
-        if (cmd.size()) {
-            containerCreateRequest.cmd = cmd
-        }
-
-        if (entrypoint.size()) {
-            containerCreateRequest.entrypoint = entrypoint
-        }
-
-        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, containerName)
-        assert response.content.warnings.isEmpty(): "Error when creating $containerName container:" + response.content.warnings.join(",")
-
-        containerId = response.content.id
-        return containerId
-
-    }
-
-    String createContainer() {
-        return createContainer([], [])
+        return createContainer([],["tail", "-f", "/dev/null"])
     }
 
 
 
-    boolean runOnFirstStartup() {
 
-        return true
-    }
 
 }

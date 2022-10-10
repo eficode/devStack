@@ -107,13 +107,16 @@ class JsmContainerTest extends DevStackSpec {
 
 
 
-    def "test createJsmContainer"() {
+    def "test non standard parameters"() {
         setup:
         log.info("Testing setup of JSM container using dedicated JSM method")
         JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
+        jsm.containerName = "Spoc-JSM"
+        jsm.containerImageTag = "4-ubuntu-jdk11"
+        jsm.containerMainPort = "666"
 
         when:
-        String containerId = jsm.createJsmContainer("Spoc-JSM", "atlassian/jira-servicemanagement", "4-ubuntu-jdk11", 10, "666")
+        String containerId = jsm.createContainer()
         ContainerInspectResponse containerInspect =  dockerClient.inspectContainer(containerId).content
 
 
@@ -156,7 +159,7 @@ class JsmContainerTest extends DevStackSpec {
 
        when: "Setting up the container with the trait method"
        log.info("\tSetting up JSM container using dedicated JSM method")
-       String containerId2 = jsm.createJsmContainer()
+       String containerId2 = jsm.createContainer()
 
        then: "Removing it should return true"
        jsm.stopAndRemoveContainer()

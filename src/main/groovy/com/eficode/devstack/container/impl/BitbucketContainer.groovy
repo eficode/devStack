@@ -12,6 +12,7 @@ class BitbucketContainer implements Container{
     String containerMainPort = "7990"
     String containerImage = "atlassian/bitbucket"
     String containerImageTag = "latest"
+    String baseUrl
     long jvmMaxRam = 4096
 
 
@@ -20,58 +21,36 @@ class BitbucketContainer implements Container{
      * @param dockerHost  ex: https://docker.domain.com:2376
      * @param dockerCertPath ex: src/test/resources/dockerCert
      */
-    BitbucketContainer(String dockerHost, String dockerCertPath) {
+    BitbucketContainer(String baseUrl, String dockerHost, String dockerCertPath) {
         assert setupSecureRemoteConnection(dockerHost, dockerCertPath) : "Error setting up secure remote docker connection"
+        this.baseUrl = baseUrl
     }
 
-    BitbucketContainer() {}
-
-
-    /**
-     * Creates the container
-     * @return returns container ID
-     */
-    String createContainer() {
-
-        containerId = createBbContainer(this.containerName)
-        return containerId
-
+    BitbucketContainer(String baseUrl) {
+        this.baseUrl = baseUrl
     }
 
-    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
-
-        if (cmd || entrypoint) {
-            throw new InputMismatchException("cmd and entrypoint cant be supplied to ${BitbucketContainer.simpleName}")
-        }
-
-        return createContainer()
-
-    }
-
-    String createBbContainer(String containerName = this.containerName, String imageName = containerImage, String imageTag = containerImageTag, long maxRamMB = jvmMaxRam, String mainPort = containerMainPort, String baseUrl = this.containerName) {
-
-        assert dockerClient.ping().content as String == "OK", "Error Connecting to docker service"
-
+    @Override
+    ContainerCreateRequest setupContainerCreateRequest() {
 
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
-            c.image = imageName + ":" + imageTag
-            c.env = ["JVM_MAXIMUM_MEMORY=" + maxRamMB.toString() + "m", "JVM_MINIMUM_MEMORY=" + ((maxRamMB / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl , "SERVER_PORT=" + mainPort]
-            c.exposedPorts = [(mainPort + "/tcp"): [:]]
-            c.hostConfig = new HostConfig().tap { h -> h.portBindings = [(mainPort + "/tcp"): [new PortBinding("0.0.0.0", (mainPort.toString()))]] }
+            c.image = containerImage + ":" + containerImageTag
+            c.exposedPorts = [(containerMainPort + "/tcp"): [:]]
+            c.hostConfig = new HostConfig().tap { h ->
+                h.portBindings = [(containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (containerMainPort))]]
+                h.mounts = this.mounts
+            }
             c.hostname = containerName
+            c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl , "SERVER_PORT=" + containerMainPort] + customEnvVar
+
 
         }
 
-
-        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, containerName)
-        assert response.content.warnings.isEmpty(): "Error when creating $containerName container:" + response.content.warnings.join(",")
-
-        containerId = response.content.id
-        return containerId
-
+        return containerCreateRequest
 
     }
+
 
 
     boolean runOnFirstStartup() {

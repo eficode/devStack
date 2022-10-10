@@ -6,10 +6,8 @@ import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import kong.unirest.Unirest
 import org.apache.commons.io.FileUtils
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
-import spock.lang.Specification
 
 class BitbucketH2DeploymentTest extends DevStackSpec{
 
@@ -38,7 +36,7 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
         containerNames = ["bitbucket.domain.se", "bitbucket2.domain.se"]
         containerPorts = [7990, 7992]
 
-        disableCleanupAfter = false
+        disableCleanup = false
     }
 
 

@@ -26,21 +26,6 @@ class NginxContainer implements Container{
         assert setupSecureRemoteConnection(dockerHost, dockerCertPath) : "Error setting up secure remote docker connection"
     }
 
-    String createContainer() {
-        containerId = createNginxContainer()
-        return containerId
-    }
-
-    String createContainer(ArrayList<String> cmd , ArrayList<String> entrypoint ) {
-
-        if (cmd || entrypoint) {
-            throw new InputMismatchException("cmd and entrypoint cant be supplied to ${NginxContainer.simpleName}")
-        }
-
-        return createContainer()
-
-    }
-
 
     /**
      * Bind local dir to nginx default root dir /usr/share/nginx/html
@@ -52,36 +37,4 @@ class NginxContainer implements Container{
         prepareBindMount(sourceAbs,"/usr/share/nginx/html" , readOnly)
     }
 
-    String createNginxContainer(){
-
-
-        assert ping(),  "Error Connecting to docker engine"
-
-        ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
-
-            c.image = containerImage + ":" + containerImageTag
-            c.exposedPorts = [(containerMainPort+"/tcp"): [:]]
-            c.hostConfig = new HostConfig().tap { h ->
-                h.portBindings = [(containerMainPort+"/tcp"): [new PortBinding("0.0.0.0", (containerMainPort))]]
-                h.mounts = this.mounts
-            }
-            c.hostname = containerName
-
-
-        }
-
-
-
-        EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, containerName)
-        assert response.content.warnings.isEmpty(): "Error when creating $containerName container:" + response.content.warnings.join(",")
-
-        containerId = response.content.id
-        return containerId
-
-
-    }
-
-    boolean runOnFirstStartup() {
-        return true
-    }
 }

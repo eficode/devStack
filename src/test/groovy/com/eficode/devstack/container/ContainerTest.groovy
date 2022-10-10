@@ -1,62 +1,44 @@
 package com.eficode.devstack.container
 
+import com.eficode.devstack.DevStackSpec
 import com.eficode.devstack.container.impl.AlpineContainer
 import de.gesellix.docker.remote.api.Network
 import groovy.io.FileType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import spock.lang.Specification
 
-class ContainerTest extends Specification {
+class ContainerTest extends DevStackSpec {
 
     static Logger log = LoggerFactory.getLogger(ContainerTest.class)
 
-    String dockerHost = "https://docker.domain.se:2376"
-    String dockerCertPath = "./resources/dockerCert"
+
+    def setupSpec() {
 
 
-    class ContainerImpl implements Container {
+        dockerRemoteHost = "https://docker.domain.se:2376"
+        dockerCertPath = "resources/dockerCert"
 
-        String containerName = "spoc"
-        String containerMainPort = "666"
+        dockerClient = resolveDockerClient()
 
-        String createContainer() {
-            return ""
-        }
+        log = LoggerFactory.getLogger(ContainerTest.class)
 
-        String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint) {
+        dockerClient = resolveDockerClient()
 
-            return ""
-        }
+        containerNames = ["spock-alpine1", "spock-alpine2"]
+        containerPorts = []
 
-        @Override
-        boolean runOnFirstStartup() {
-            return true
-        }
+        disableCleanup = false
     }
 
-
-    def testPing() {
-
-        setup:
-        ContainerImpl container = new ContainerImpl()
-        container.setupSecureRemoteConnection(dockerHost, dockerCertPath)
-
-        expect:
-        container.ping()
-
-    }
 
 
     def testNetworking() {
-
-        //TODO continue this
 
         setup:
         String networkName = "spock-network"
         log.info("Testing CRUD of networks")
 
-        AlpineContainer alpine1 = new AlpineContainer(dockerHost, dockerCertPath)
+        AlpineContainer alpine1 = new AlpineContainer(dockerRemoteHost, dockerCertPath)
         alpine1.containerName = "spock-alpine1"
 
         if (alpine1.created) {
@@ -64,7 +46,7 @@ class ContainerTest extends Specification {
         }
         alpine1.createSleepyContainer()
 
-        AlpineContainer alpine2 = new AlpineContainer(dockerHost, dockerCertPath)
+        AlpineContainer alpine2 = new AlpineContainer(dockerRemoteHost, dockerCertPath)
         alpine2.containerName = "spock-alpine2"
         if (alpine2.created) {
             assert alpine2.stopAndRemoveContainer(0)
@@ -109,6 +91,8 @@ class ContainerTest extends Specification {
         alpine1.getBridgeNetwork(networkName).containers.isEmpty()
         alpine1.getBridgeNetwork(networkName).driver == "bridge"
         log.info("\tCreation of networks was tested successfully")
+
+        alpine1.inspectContainer().name == "/spock-alpine1"
 
 
         alpine1.removeNetwork(removedNetwork)
