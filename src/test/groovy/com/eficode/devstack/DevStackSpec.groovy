@@ -153,7 +153,8 @@ class DevStackSpec extends Specification{
         log.debug("\t\tFound pem files:" + pemFiles.name.join(","))
 
 
-        if (!pemFiles.empty && pemFiles.every { pemFile -> ["ca.pem", "cert.pem", "key.pem"].find { it == pemFile.name } }) {
+
+        if (!pemFiles.empty && ["ca.pem", "cert.pem", "key.pem"].every {expectedFile -> pemFiles.any {actualFile -> actualFile.name == expectedFile}}) {
             log.info("\tFound Docker certs, returning Secure remote Docker connection")
             try {
                 DockerClientImpl dockerClient = setupSecureRemoteConnection(dockerRemoteHost, dockerCertPath)

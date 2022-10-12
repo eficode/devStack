@@ -29,6 +29,8 @@ class DoodContainerTest extends DevStackSpec {
         DoodContainer dc = new DoodContainer()
         if (dockerHost && dockerCerts) {
             dc.setupSecureRemoteConnection(dockerHost, dockerCerts)
+            assert dc.dockerClient.dockerClientConfig.host == dockerHost : "Connection to remote Docker host was not setup"
+
         }
 
         dc.containerName = "dood.domain.se"
