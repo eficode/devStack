@@ -332,7 +332,8 @@ output "SSH-TO-Node" {
 }
 
 output "Hosts-record" {
-  value = "${data.aws_network_interface.lb_nic.association[0].public_ip} docker.domain.se"
+  value = "${data.aws_network_interface.lb_nic.association[0].public_ip} jira.test.com docker.domain.se bitbucket.domain.se jira.domain.se jira2.domain.se bitbucket2.domain.se jira.auga.se 
+bitbucket.auga.se jenkins.domain.se harbor.domain.se jenkins-agent.domain.se"
   
 }
 
