@@ -13,15 +13,11 @@ class JenkinsContainer implements Container{
     String containerImageTag = "lts-jdk11"
 
 
-    JenkinsContainer(){}
 
-    /**
-     * Setup a secure connection to a remote docker
-     * @param dockerHost ex: https://docker.domain.com:2376
-     * @param dockerCertPath ex: src/test/resources/dockerCert
-     */
-    JenkinsContainer(String dockerHost, String dockerCertPath) {
-        assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+    JenkinsContainer(String dockerHost = "", String dockerCertPath = "") {
+        if (dockerHost && dockerCertPath) {
+            assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        }
     }
 
     /**

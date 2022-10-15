@@ -13,33 +13,33 @@ class HarborManagerContainer extends DoodContainer {
     String harborBaseUrl
     String basePath
 
-    HarborManagerContainer(String baseUrl, String harborVersion) {
-
-        this.harborBaseUrl = baseUrl
-        this.harborVersion = harborVersion
-        this.containerName = host + "-manager"
-        this.basePath = "/data/${host}"
-        prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock") // Mount docker socket
-        prepareBindMount("/data/" , "/data/", false) //Mount data dir, data in this dir needs to be accessible by both engine and manager-container using the same path
-
-    }
-
     /**
-     * Setup a secure connection to a remote docker
-     * @param dockerHost ex: https://docker.domain.com:2376
-     * @param dockerCertPath ex: src/test/resources/dockerCert
+     * HarborManagerContainer setups a container that runs the Harbor installation scripts, which in turn creates all the "real"
+     * harbor containers
+     * @param baseUrl The url where Harbor should be reachable on
+     * @param harborVersion The version of harbor to install
+     * @param baseDir The dir <b> On the Docker Engine </b> where harbor data and installation files will be kept.
+     *          <br>This directory must already exist before creating this container
+     *          <br>$baseDir/$harborHostname/data will contain harbor data ("data_volume")
+     *          <br>$baseDir/$harborHostname/install will contain harbor data ("data_volume")
+     *
      */
-    HarborManagerContainer(String baseUrl, String harborVersion, String dockerHost, String dockerCertPath) {
+    HarborManagerContainer(String baseUrl, String harborVersion, String baseDir = "/opt/", String dockerHost = "", String dockerCertPath = "") {
 
-        assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
         this.harborBaseUrl = baseUrl
         this.harborVersion = harborVersion
         this.containerName = host + "-manager"
-        this.basePath = "/data/${host}"
+        this.basePath =   baseDir[-1] == "/" ? baseDir + host : baseDir + "/"  + host
+
+        if (dockerHost && dockerCertPath) {
+            assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        }
 
         prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock") // Mount docker socket
-        prepareBindMount("/data/" , "/data/", false) //Mount data dir, data in this dir needs to be accessible by both engine and manager-container using the same path
+        prepareBindMount(baseDir , baseDir, false) //Mount data dir, data in this dir needs to be accessible by both engine and manager-container using the same path
+
     }
+
 
     String getInstallPath() {
         return basePath + "/install"
@@ -66,8 +66,9 @@ class HarborManagerContainer extends DoodContainer {
 
         log.info("Setting up Harbor")
 
+        //Make sure basePath is empty or does not exist
         ArrayList<String> cmdOutput = runBashCommandInContainer("""ls "$basePath" | wc -l""", 5)
-        assert cmdOutput == ["0"] || cmdOutput.first().contains("ls: cannot access '$basePath'") : "Harbor base path is not empty: $basePath"
+        assert cmdOutput == ["0"] || cmdOutput.any{it.startsWith("ls: cannot access")} : "Harbor base path is not empty: $basePath"
 
 
 
@@ -120,7 +121,7 @@ class HarborManagerContainer extends DoodContainer {
 
         log.info("\tStarting  installation")
         cmdOutput = runBashCommandInContainer(installPath + "/harbor/install.sh ; echo status: \$?", 400 )
-        assert cmdOutput.last() == "status: 0": "Error installing harbor:" + cmdOutput.join("\n")
+        assert cmdOutput.last().contains("status: 0"): "Error installing harbor:" + cmdOutput.join("\n")
 
 
 

@@ -47,7 +47,7 @@ trait Container {
     abstract String containerImage
     abstract String containerImageTag
     ArrayList<String> customEnvVar = []
-    String containerNetworkName = "bridge"
+    //String containerNetworkName = "bridge"
     String defaultShell = "/bin/bash"
     String containerId
     ArrayList<Mount> mounts = []
@@ -215,15 +215,6 @@ trait Container {
         boolean firstStartup = hasNeverBeenStarted()
 
 
-        Network network = getNetwork(self.containerNetworkName)
-
-        if (!network) {
-            log.debug("\tContainers network is missing,creating it now")
-            network = createBridgeNetwork(self.containerNetworkName)
-        }
-
-        setContainerNetworks([network])
-
         dockerClient.startContainer(self.containerId)
 
 
@@ -318,7 +309,7 @@ trait Container {
 
     boolean stopContainer() {
         log.info("Stopping container:" + self.containerId)
-        running ? dockerClient.stop(self.containerId, 240000) : ""
+        running ? dockerClient.stop(self.containerId, 15) : ""
         if (running) {
             log.warn("\tFailed to stop container" + self.containerId)
             return false
@@ -490,6 +481,10 @@ trait Container {
         return getNetwork(network.id) != null
     }
 
+    /**
+     * Get the networks that this container is connected too
+     * @return
+     */
     ArrayList<Network> getContainerNetworks() {
         Map<String, EndpointSettings> rawResponse = inspectContainer().networkSettings.networks
 
@@ -674,7 +669,7 @@ trait Container {
      * @param url
      * @return
      */
-    String extractPortFromUrl(String url) {
+    static String extractPortFromUrl(String url) {
         Pattern pattern = Pattern.compile(".*?:(\\d+)")
 
         Matcher matcher = pattern.matcher(url)
@@ -688,7 +683,7 @@ trait Container {
 
     }
 
-    String extractDomainFromUrl(String url) {
+    static String extractDomainFromUrl(String url) {
         String out = url.replaceFirst(/^https?:\/\//, "") //Remove protocol
         out = out.replaceFirst(/:\d+\\/?.*/, "") //Remove Port and anything after
         out = out.replaceFirst(/\/.*/, "") //Remove subdomain

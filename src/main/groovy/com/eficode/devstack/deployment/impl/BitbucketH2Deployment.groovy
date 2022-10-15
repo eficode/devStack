@@ -14,11 +14,11 @@ class BitbucketH2Deployment implements Deployment{
     String bitbucketLicense
     String bitbucketBaseUrl
 
-    BitbucketH2Deployment(String bitbucketBaseUrl) {
+    BitbucketH2Deployment(String bitbucketBaseUrl, String dockerHost = "", String dockerCertPath = "") {
 
         this.bitbucketBaseUrl = bitbucketBaseUrl
         this.bitbucketRest = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
-        this.containers = [new BitbucketContainer(bitbucketBaseUrl)]
+        this.containers = [new BitbucketContainer(bitbucketBaseUrl, dockerHost, dockerCertPath)]
         bitbucketContainer.containerName = bitbucketContainer.extractDomainFromUrl(bitbucketBaseUrl)
         bitbucketContainer.containerMainPort = bitbucketContainer.extractPortFromUrl(bitbucketBaseUrl)
 
@@ -51,7 +51,7 @@ class BitbucketH2Deployment implements Deployment{
         log.info("\tCreated Bitbucket container:" + bitbucketContainer.id)
 
         log.info("\tConfiguring container to join network:" + this.deploymentNetworkName)
-        bitbucketContainer.containerNetworkName = this.deploymentNetworkName
+        bitbucketContainer.connectContainerToNetwork(bitbucketContainer.getNetwork(this.deploymentNetworkName))
 
         assert bitbucketContainer.startContainer() : "Error starting Bitbucket container:" + bitbucketContainer.id
         log.info("\tStarted Bitbucket container")

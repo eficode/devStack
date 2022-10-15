@@ -13,17 +13,14 @@ class NginxContainer implements Container{
     String containerMainPort= "80"
     String containerImage = "nginx"
     String containerImageTag ="alpine"
+    String defaultShell = "/bin/sh"
 
 
-    NginxContainer() {}
 
-    /**
-     * Setup a secure connection to a remote docker
-     * @param dockerHost  ex: https://docker.domain.com:2376
-     * @param dockerCertPath ex: src/test/resources/dockerCert
-     */
-    NginxContainer(String dockerHost, String dockerCertPath) {
-        assert setupSecureRemoteConnection(dockerHost, dockerCertPath) : "Error setting up secure remote docker connection"
+    NginxContainer(String dockerHost = "", String dockerCertPath = "") {
+        if (dockerHost && dockerCertPath) {
+            assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        }
     }
 
 

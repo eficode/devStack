@@ -4,6 +4,8 @@ package com.eficode.devstack
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
+import de.gesellix.docker.remote.api.ContainerInspectResponse
+import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
 import org.apache.commons.io.FileUtils
 import org.slf4j.Logger
@@ -11,7 +13,7 @@ import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
-class DevStackSpec extends Specification{
+class DevStackSpec extends Specification {
 
     @Shared
     String dockerRemoteHost = "https://docker.domain.se:2376"
@@ -22,9 +24,9 @@ class DevStackSpec extends Specification{
     DockerClientImpl dockerClient
 
     @Shared
-    ArrayList<String> containerNames
+    ArrayList<String> cleanupContainerNames
     @Shared
-    ArrayList<Integer> containerPorts
+    ArrayList<Integer> cleanupContainerPorts
 
     @Shared
     boolean disableCleanup = false
@@ -34,12 +36,17 @@ class DevStackSpec extends Specification{
     static Logger log = LoggerFactory.getLogger(this.class)
 
 
+    //Run before every test
     def setup() {
+
+        dockerClient = resolveDockerClient()
         if (!disableCleanup) {
             cleanupContainers()
         }
     }
 
+
+    //Run after every test
     def cleanup() {
         if (!disableCleanup) {
             cleanupContainers()
@@ -47,114 +54,96 @@ class DevStackSpec extends Specification{
 
     }
 
-    def cleanupSpec() {
-        if (!disableCleanup) {
-            cleanupContainers()
-        }
-    }
 
 
 
     boolean cleanupContainers() {
 
 
-
         DockerClientImpl dockerClient = resolveDockerClient()
         log.info("Cleaning up containers")
 
-        ArrayList<ContainerSummary> containers = dockerClient.ps().content
+        ArrayList<ContainerInspectResponse> containers = dockerClient.ps().content.collect {dockerClient.inspectContainer(it.id as String).content}
 
         log.debug("\tThere are currenlty ${containers.size()} containers")
-        log.debug("\tWill remove any container named:" + containerNames?.join(","))
-        log.debug("\tWill remove any container bound to ports:" + containerPorts?.join(","))
-        containers.each {container->
-
-            boolean nameCollision = false
-            container.names.any {existingName ->
-                containerNames.any {unwantedName ->
-                    if (existingName == "/"+ unwantedName) {
-                        nameCollision = true
-                    }
-                }
-            }
+        log.debug("\tWill remove any container named:" + cleanupContainerNames?.join(","))
+        log.debug("\tWill remove any container bound to ports:" + cleanupContainerPorts?.join(","))
+        containers.each { container ->
 
 
-            boolean portCollision = false
 
-            container.ports.find { existingPort ->
-                containerPorts.each {unwantedPort ->
-                    if (existingPort.publicPort == unwantedPort) {
-                        portCollision = true
-                    }
-                }
-            }
+
+            boolean nameCollision = cleanupContainerNames.any { container.name == "/" + it}
+
+            boolean portCollision  = cleanupContainerPorts.any {unwantedPort ->container.hostConfig.portBindings.values().hostPort.flatten().contains(unwantedPort.toString()) }
+
 
             if (nameCollision || portCollision) {
-                log.info("\tWill kill and remove container: ${container.names.join(",")} (${container.id})")
-                log.debug("\t\tContainer has matching name:" + nameCollision + " (${container.names.join(",")})")
-                log.debug("\t\tContainer has matching port:" + portCollision + " (${container.ports.publicPort.join(",")})")
+                log.info("\tWill kill and remove container: ${container.name} (${container.id})")
+                log.debug("\t\tContainer has matching name:" + nameCollision + " (${container.name})")
+                log.debug("\t\tContainer has matching port:" + portCollision + " (${container.hostConfig.portBindings.values().hostPort.flatten().join(",")})")
 
-                if (container.state == "running") {
+                if (container.state.status == ContainerState.Status.Running) {
                     dockerClient.kill(container.id)
                 }
                 dockerClient.rm(container.id)
-                log.info("Stopped and removed container: ${container?.names?.join(",")} (${container?.id})")
+                log.info("Stopped and removed container: ${container.name} (${container?.id})")
             }
         }
 
+        log.info("\tFinished cleanup of containers")
+        return true
 
     }
 
-
-    /**
-    def stopAndRemoveContainer(ArrayList<String> containerNames) {
-
-
-        DockerClientImpl dockerClient = resolveDockerClient()
-
-        ArrayList<ContainerSummary> containers = dockerClient.ps().content
-
-        containerNames.each {containerName ->
-
-            ContainerSummary container = containers.find { it.Names.first() == "/" + containerName }
-            String id = container?.id
-
-            if (id) {
-                if (container.state == "running") {
-                    dockerClient.kill(id)
-                }
-                dockerClient.rm(id)
-                log.info("Stopped and removed container: ${container?.names?.join(",")} (${container?.id})")
-            }
-        }
-
-
-    }
-     */
 
     DockerClientImpl resolveDockerClient() {
 
+        log.info("Resolving Docker client")
 
-        log.info("Getting Docker client")
+        String dockerHost = null
+        String certPath = null
+        File certDir = null
 
-        if (!dockerRemoteHost) {
+        try {
+
+            if (specificationContext?.currentIteration?.dataVariables?.dockerHost) {
+                dockerHost = specificationContext.currentIteration.dataVariables.dockerHost
+                log.debug("\tThe current spec provided docker host:" + dockerHost)
+
+
+            }
+
+            if (specificationContext?.currentIteration?.dataVariables?.certPath) {
+                certPath = specificationContext.currentIteration.dataVariables.certPath
+                log.debug("\tThe current spec provided cert path:" + certPath)
+                certDir = new File(certPath)
+
+                assert certDir.isDirectory(): "The given cert path is not a directory:" + certPath
+            }
+        } catch (IllegalStateException ex) {
+            if (ex.message == "Cannot request current iteration in @Shared context") {
+                log.error("\tCant determine resolve DockerClient")
+                throw ex
+            }
+        }
+
+
+        assert (dockerHost && certPath) || (!dockerHost && !certPath): "Either both of or neither dockerHost and certPath must be provided"
+
+
+        if (!dockerHost) {
             log.info("\tNo remote host configured, returning local docker connection")
             return new DockerClientImpl()
         }
 
-        File certDir = new File(dockerCertPath)
 
-        if (!certDir.isDirectory()) {
-            log.info("\tNo valid Docker Cert Path given, returning local docker connection")
-            return new DockerClientImpl()
-        }
         log.info("\tLooking for docker certs in:" + certDir.absolutePath)
         ArrayList<File> pemFiles = FileUtils.listFiles(certDir, ["pem"] as String[], false)
         log.debug("\t\tFound pem files:" + pemFiles.name.join(","))
 
 
-
-        if (!pemFiles.empty && ["ca.pem", "cert.pem", "key.pem"].every {expectedFile -> pemFiles.any {actualFile -> actualFile.name == expectedFile}}) {
+        if (!pemFiles.empty && ["ca.pem", "cert.pem", "key.pem"].every { expectedFile -> pemFiles.any { actualFile -> actualFile.name == expectedFile } }) {
             log.info("\tFound Docker certs, returning Secure remote Docker connection")
             try {
                 DockerClientImpl dockerClient = setupSecureRemoteConnection(dockerRemoteHost, dockerCertPath)
@@ -162,15 +151,13 @@ class DevStackSpec extends Specification{
                 return dockerClient
             } catch (ex) {
                 log.error("\tError setting up connection to remote Docker engine:" + ex.message)
-                log.info("\tReturning local Docker connection")
-                return new DockerClientImpl()
+                throw ex
             }
 
+        } else {
+            log.error("\tCould not find Docker certs, expected ca.pem, cert.pem and key.pem in:" + certDir.absolutePath)
+            throw new InputMismatchException("Could not find Docker certs, expected ca.pem, cert.pem and key.pem in:" + certDir.absolutePath)
         }
-
-        log.info("\tMissing Docker certs, returning local docker connection")
-
-        return new DockerClientImpl()
 
     }
 

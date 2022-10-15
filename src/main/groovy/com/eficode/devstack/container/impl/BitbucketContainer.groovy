@@ -6,7 +6,7 @@ import de.gesellix.docker.remote.api.ContainerCreateRequest
 import de.gesellix.docker.remote.api.HostConfig
 import de.gesellix.docker.remote.api.PortBinding
 
-class BitbucketContainer implements Container{
+class BitbucketContainer implements Container {
 
     String containerName = "Bitbucket"
     String containerMainPort = "7990"
@@ -16,19 +16,14 @@ class BitbucketContainer implements Container{
     long jvmMaxRam = 4096
 
 
-    /**
-     * Setup a secure connection to a remote docker
-     * @param dockerHost  ex: https://docker.domain.com:2376
-     * @param dockerCertPath ex: src/test/resources/dockerCert
-     */
-    BitbucketContainer(String baseUrl, String dockerHost, String dockerCertPath) {
-        assert setupSecureRemoteConnection(dockerHost, dockerCertPath) : "Error setting up secure remote docker connection"
+    BitbucketContainer(String baseUrl, String dockerHost = "", String dockerCertPath = "") {
+
+        if (dockerHost && dockerCertPath) {
+            assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        }
         this.baseUrl = baseUrl
     }
 
-    BitbucketContainer(String baseUrl) {
-        this.baseUrl = baseUrl
-    }
 
     @Override
     ContainerCreateRequest setupContainerCreateRequest() {
@@ -42,7 +37,7 @@ class BitbucketContainer implements Container{
                 h.mounts = this.mounts
             }
             c.hostname = containerName
-            c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl , "SERVER_PORT=" + containerMainPort] + customEnvVar
+            c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl, "SERVER_PORT=" + containerMainPort] + customEnvVar
 
 
         }
@@ -52,14 +47,12 @@ class BitbucketContainer implements Container{
     }
 
 
-
     boolean runOnFirstStartup() {
         log.debug("\tUpdating apt and installing dependencies")
-        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping net-tools; echo status: \$?", 300).any {it.contains("status: 0")}
+        assert runBashCommandInContainer("apt update; apt install -y htop nano inetutils-ping net-tools; echo status: \$?", 300).any { it.contains("status: 0") }
 
         return true
     }
-
 
 
 }

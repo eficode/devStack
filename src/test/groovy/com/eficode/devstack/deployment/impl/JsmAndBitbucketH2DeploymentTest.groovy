@@ -29,8 +29,8 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
 
         dockerClient = resolveDockerClient()
 
-        containerNames = ["jira.domain.se", "jira2.domain.se", "bitbucket.domain.se", "bitbucket2.domain.se"]
-        containerPorts = [8080, 8082, 7990, 7992]
+        cleanupContainerNames = ["jira.domain.se", "jira2.domain.se", "bitbucket.domain.se", "bitbucket2.domain.se"]
+        cleanupContainerPorts = [8080, 8082, 7990, 7992]
 
         disableCleanup = true
     }

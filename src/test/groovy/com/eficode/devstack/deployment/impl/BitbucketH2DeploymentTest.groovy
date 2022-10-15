@@ -12,11 +12,6 @@ import spock.lang.Shared
 class BitbucketH2DeploymentTest extends DevStackSpec{
 
 
-    @Shared
-    String bitbucketBaseUrl = "http://bitbucket.domain.se:7990"
-
-    @Shared
-    String bitbucket2BaseUrl = "http://bitbucket2.domain.se:7992"
 
     @Shared
     File bitbucketLicenseFile = new File("resources/bitbucket/licenses/bitbucketLicense")
@@ -27,26 +22,25 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
 
         log = LoggerFactory.getLogger(BitbucketH2DeploymentTest.class)
 
-        dockerClient = resolveDockerClient()
-
-        containerNames = ["bitbucket.domain.se", "bitbucket2.domain.se"]
-        containerPorts = [7990, 7992]
+        cleanupContainerNames = ["bitbucket.domain.se", "bitbucket2.domain.se" , "localhost"]
+        cleanupContainerPorts = [7990, 7992, 80]
 
         disableCleanup = false
     }
 
 
-    def "def setupDeployment"(String baseUrl, String port) {
+    def "def setupDeployment"(String dockerHost, String certPath, String baseUrl) {
 
         setup:
-        BitbucketH2Deployment  bitbucketDep = new BitbucketH2Deployment(baseUrl)
-        bitbucketDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
+        BitbucketH2Deployment  bitbucketDep = new BitbucketH2Deployment(baseUrl, dockerHost, certPath)
+        //bitbucketDep.setupSecureDockerConnection(dockerHost, baseUrl)
         bitbucketDep.setBitbucketLicence(bitbucketLicenseFile)
-        bitbucketDep.stopAndRemoveDeployment()
+        //bitbucketDep.stopAndRemoveDeployment()
+
+        String port = bitbucketDep.bitbucketContainer.extractPortFromUrl(baseUrl)
 
 
         when:
@@ -59,15 +53,20 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
 
 
         where:
-        baseUrl | port
-        bitbucket2BaseUrl | 7992
-        bitbucketBaseUrl | 7990
+        dockerHost       | certPath       | baseUrl
+        ""               | ""             | "http://localhost"
+        dockerRemoteHost | dockerCertPath | "http://bitbucket.domain.se:7990"
+        dockerRemoteHost | dockerCertPath | "http://bitbucket2.domain.se:7992"
+
+
+
 
 
     }
 
 
 
+    /*
     DockerClientImpl resolveDockerClient() {
 
         if (this.dockerClient) {
@@ -110,13 +109,14 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
 
         return new DockerClientImpl()
 
-    }
+    }*/
 
     /**
      * Replaced the default docker connection (local) with a remote, secure one
      * @param host ex: "https://docker.domain.se:2376"
      * @param certPath folder containing ca.pem, cert.pem, key.pem
      */
+    /*
     static DockerClientImpl setupSecureRemoteConnection(String host, String certPath) {
 
         DockerClientConfig dockerConfig = new DockerClientConfig(host)
@@ -128,4 +128,6 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
         return new DockerClientImpl(dockerConfig)
 
     }
+
+     */
 }

@@ -14,6 +14,7 @@ trait Deployment {
 
     abstract boolean setupDeployment()
 
+    /*
     void setupSecureDockerConnection(String host, String certPath) {
 
         log.info("Setting up secure connection to docker engine")
@@ -26,6 +27,8 @@ trait Deployment {
         }
         log.info("\tSuccessfully setup secure connections to docker engine")
     }
+
+     */
 
 
     boolean startDeployment() {

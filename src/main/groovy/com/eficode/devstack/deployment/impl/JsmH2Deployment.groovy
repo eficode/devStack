@@ -80,7 +80,7 @@ class JsmH2Deployment implements Deployment{
         log.info("\tCreated jsm container:" + jsmContainer.id)
 
         log.info("\tConfiguring container to join network:" + this.deploymentNetworkName)
-        jsmContainer.containerNetworkName = this.deploymentNetworkName
+        jsmContainer.connectContainerToNetwork(jsmContainer.getNetwork(this.deploymentNetworkName))
 
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")

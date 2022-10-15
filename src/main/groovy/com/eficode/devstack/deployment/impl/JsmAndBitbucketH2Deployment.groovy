@@ -201,6 +201,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
 
     }
 
+    /*
     @Override
     void setupSecureDockerConnection(String host, String certPath) {
 
@@ -208,6 +209,8 @@ class JsmAndBitbucketH2Deployment implements Deployment {
             deployment.setupSecureDockerConnection(host, certPath)
         }
     }
+
+     */
 
     /**
      * Install apps in to JIRA

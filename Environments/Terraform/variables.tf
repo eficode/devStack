@@ -78,6 +78,16 @@ variable "ingress_rules_from_trusted" {
           port   =  2376
           protocol    = "tcp"
           description = "Docker port"
+        },
+         {
+          port   =  7990
+          protocol    = "tcp"
+          description = "Bitbucket port"
+        },
+        {
+          port   =  7992
+          protocol    = "tcp"
+          description = "Bitbucket second instance port"
         }
     ]
 }

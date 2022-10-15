@@ -12,10 +12,10 @@ class HarborDeployment implements Deployment{
     ArrayList<Container> containers = []
 
 
-    HarborDeployment(String baseUrl,  String harborVersion = "v2.6.0") {
+    HarborDeployment(String baseUrl,  String harborVersion = "v2.6.0", String baseDir = "/opt/", String dockerHost = "", String dockerCertPath = "") {
 
 
-        HarborManagerContainer managerContainer = new HarborManagerContainer(baseUrl, harborVersion)
+        HarborManagerContainer managerContainer = new HarborManagerContainer(baseUrl, harborVersion, baseDir, dockerHost, dockerCertPath)
         this.containers = [managerContainer]
 
 

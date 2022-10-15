@@ -2,8 +2,10 @@
 
 ## Setup of test Environment
 
+//TODO add info about license files
+
 1. Setup certs in resources/dockerCert
-    * ca.pem: A ca cert that signed the other cers
+    * ca.pem: A ca cert that signed the other certs
     * cert.pem & key.pem: Public and private keys to be used by docker client
     * server-cert.pem & server-key.pem: Public and private keys to be used by docker server. Should be setup for domain name: docker.domain.se
 
