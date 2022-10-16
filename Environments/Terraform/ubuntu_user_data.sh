@@ -57,4 +57,14 @@ systemctl restart docker
 
 echo "Finished setting up docker"
 
+echo "Tweaking sshd"
+
+echo "ClientAliveInterval 60" >> /etc/ssh/sshd_config 
+echo "ClientAliveCountMax 100" >> /etc/ssh/sshd_config 
+systemctl restart sshd
+
+echo "Finished tweaking sshd"
+
+
+
 echo End of user data

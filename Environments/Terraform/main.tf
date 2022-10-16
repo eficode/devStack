@@ -266,6 +266,11 @@ resource "aws_instance" "ec2-node" {
   availability_zone      = data.aws_availability_zones.available.names[0]
   iam_instance_profile   = aws_iam_instance_profile.default_profile.name
 
+  root_block_device {
+    volume_size = 16
+    tags = var.tags
+  }
+
   user_data = templatefile("ubuntu_user_data.sh", {
     awsRegion : data.aws_region.current.name
     tlscacert : file(var.dockerServerCert.tlscacert)
