@@ -23,7 +23,7 @@ class HarborDeploymentTest extends DevStackSpec {
 
 
     @Override
-    ArrayList<String> getCleanupContainerPorts() {
+    ArrayList<String> getCleanupContainerNames() {
 
 
         ArrayList<ContainerSummary> containers = dockerClient.ps().content
@@ -40,14 +40,14 @@ class HarborDeploymentTest extends DevStackSpec {
         HarborDeployment hd = new HarborDeployment(harborBaseUrl, harborVersion, harborBaseDir, dockerHost, certPath)
 
         if (dockerHost && certPath) {
-            hd.setupSecureDockerConnection(dockerHost, certPath)
             assert hd.managerContainer.dockerClient.dockerClientConfig.host == hd.managerContainer.extractDomainFromUrl(dockerHost): "Connection to remote Docker host was not setup"
+
+        }else {
+            assert hd.managerContainer.dockerClient.dockerClientConfig.host == "/var/run/docker.sock": "Connection to local Docker host was not setup"
 
         }
 
-
         hd.setupDeployment()
-        //hd.managerContainer.runAfterDockerSetup()
 
 
         then:

@@ -75,13 +75,13 @@ class DevStackSpec extends Specification {
 
             boolean nameCollision = cleanupContainerNames.any { container.name == "/" + it}
 
-            boolean portCollision  = cleanupContainerPorts.any {unwantedPort ->container.hostConfig.portBindings.values().hostPort.flatten().contains(unwantedPort.toString()) }
+            boolean portCollision  = cleanupContainerPorts.any {unwantedPort ->container?.hostConfig?.portBindings?.values()?.hostPort?.flatten()?.contains(unwantedPort.toString()) }
 
 
             if (nameCollision || portCollision) {
                 log.info("\tWill kill and remove container: ${container.name} (${container.id})")
                 log.debug("\t\tContainer has matching name:" + nameCollision + " (${container.name})")
-                log.debug("\t\tContainer has matching port:" + portCollision + " (${container.hostConfig.portBindings.values().hostPort.flatten().join(",")})")
+                log.debug("\t\tContainer has matching port:" + portCollision + " (${container?.hostConfig?.portBindings?.values()?.hostPort?.flatten()?.join(",")})")
 
                 if (container.state.status == ContainerState.Status.Running) {
                     dockerClient.kill(container.id)
