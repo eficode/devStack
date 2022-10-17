@@ -104,9 +104,12 @@ class JenkinsAndHarborDeployment implements Deployment {
         }
 
 
-        return jenkinsFuture.get() && harborFuture.get()
+        //TODO fix this hardcoded true
+        return true
 
 
     }
+
+
 
 }
