@@ -83,7 +83,7 @@ class DevStackSpec extends Specification {
                 log.debug("\t\tContainer has matching name:" + nameCollision + " (${container.name})")
                 log.debug("\t\tContainer has matching port:" + portCollision + " (${container?.hostConfig?.portBindings?.values()?.hostPort?.flatten()?.join(",")})")
 
-                if (container.state.status == ContainerState.Status.Running) {
+                if (container.state.status in [ContainerState.Status.Running, ContainerState.Status.Restarting] ) {
                     dockerClient.kill(container.id)
                 }
                 dockerClient.rm(container.id)

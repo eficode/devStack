@@ -20,7 +20,7 @@ class JenkinsAndHarborDeployment implements Deployment {
 
         subDeployments = [
                 new JenkinsDeployment(jenkinsBaseUrl, dockerHost, dockerCertPath),
-                new HarborDeployment(harborBaseUrl, "v2.6.0", "/tmp/", dockerHost, dockerCertPath)
+                new HarborDeployment(harborBaseUrl, "v2.6.1", "/tmp/", dockerHost, dockerCertPath)
         ]
 
 
@@ -53,7 +53,7 @@ class JenkinsAndHarborDeployment implements Deployment {
     }
 
     HarborManagerContainer getHarborManagerContainer() {
-        return harborDeployment.harborContainers
+        return harborDeployment.managerContainer
     }
 
     ArrayList<Container> getContainers() {
@@ -80,7 +80,7 @@ class JenkinsAndHarborDeployment implements Deployment {
         threadPool.shutdown()
 
 
-        while (!jenkinsFuture.done || !harborFuture.done) {
+        while (!(jenkinsFuture.done && harborFuture.done)) {
             log.info("Waiting for deployments to finish")
             log.info("\tJenkins Finished:" + jenkinsFuture.done)
             log.info("\tHarbor Finished:" + harborFuture.done)
@@ -95,17 +95,25 @@ class JenkinsAndHarborDeployment implements Deployment {
 
             sleep(5000)
         }
+
         if (harborFuture.done) {
             log.info("\tHarbor deployment finished successfully:" + harborFuture.get())
+            log.info("\t\tHarbor URL:" + harborManagerContainer.harborBaseUrl)
+            log.info("\t\tHarbor Admin/Pw: admin Harbor12345")
         }
 
         if (jenkinsFuture.done) {
             log.info("\tJenkins deployment finished successfully:" + jenkinsFuture.get())
+            log.info("\t\tJenkins URL:" + jenkinsDeployment.baseUrl)
+            log.info("\t\tJenkins Admin PW:" + jenkinsContainer.initialAdminPassword)
         }
 
 
-        //TODO fix this hardcoded true
-        return true
+        boolean success =  (jenkinsFuture.get() && harborFuture.get())
+
+
+
+        return success
 
 
     }

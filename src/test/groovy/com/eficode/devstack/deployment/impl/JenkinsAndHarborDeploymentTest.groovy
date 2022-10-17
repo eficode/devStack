@@ -15,7 +15,20 @@ public class JenkinsAndHarborDeploymentTest extends DevStackSpec {
         log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
 
 
-        cleanupContainerNames = ["jenkins.domain.se", "harbor.domain.se"]
+        cleanupContainerNames = [
+                "jenkins.domain.se",
+                "harbor.domain.se",
+                "harbor-jobservice",
+                "nginx", "harbor-core",
+                "registry",
+                "harbor-portal",
+                "harbor-db",
+                "registryctl",
+                "redis",
+                "harbor-log",
+                "jenkins.domain.se",
+                "harbor.domain.se-manager"
+        ]
         cleanupContainerPorts = [8080, 80]
 
         disableCleanup = false
@@ -31,7 +44,7 @@ public class JenkinsAndHarborDeploymentTest extends DevStackSpec {
 
         where:
         jenkinsBaseUrl             | harborBaseUrl             | dockerHost       | certPath
-        "http://jenkins.domain.se" | "http://harbor.domain.se" | dockerRemoteHost | dockerCertPath
+        "http://jenkins.domain.se:8080" | "http://harbor.domain.se" | dockerRemoteHost | dockerCertPath
 
 
     }

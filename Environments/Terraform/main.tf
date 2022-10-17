@@ -267,7 +267,7 @@ resource "aws_instance" "ec2-node" {
   iam_instance_profile   = aws_iam_instance_profile.default_profile.name
 
   root_block_device {
-    volume_size = 16
+    volume_size = 24
     tags = var.tags
   }
 
