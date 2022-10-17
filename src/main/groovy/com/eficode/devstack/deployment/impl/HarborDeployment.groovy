@@ -86,7 +86,7 @@ class HarborDeployment implements Deployment{
 
         ArrayList<ContainerSummary> containers = managerContainer.dockerClient.ps().content
 
-        containers = containers.findAll { it.image.startsWith("goharbor") || it.names.first() == "/harbor.domain.se-manager" }
+        containers = containers.findAll { it.image.startsWith("goharbor") || it.names.first() == managerContainer.containerName}
 
         return containers
 

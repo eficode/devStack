@@ -15,12 +15,12 @@ class JsmH2Deployment implements Deployment{
 
     String jiraBaseUrl
 
-    JsmH2Deployment(String jiraBaseUrl) {
+    JsmH2Deployment(String jiraBaseUrl, String dockerHost = "", String dockerCertPath = "") {
         this.jiraBaseUrl = jiraBaseUrl
         this.jiraRest = new JiraInstanceManagerRest(jiraBaseUrl)
-        this.containers = [new JsmContainer()]
-        jsmContainer.containerName = jsmContainer.extractDomainFromUrl(jiraBaseUrl)
+        this.containers = [new JsmContainer(dockerHost, dockerCertPath)]
         jsmContainer.containerMainPort = jsmContainer.extractPortFromUrl(jiraBaseUrl)
+        jsmContainer.containerName = jsmContainer.extractDomainFromUrl(jiraBaseUrl)
     }
 
     JsmContainer getJsmContainer() {

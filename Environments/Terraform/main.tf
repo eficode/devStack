@@ -299,7 +299,7 @@ resource "aws_lb_listener" "lb-listener" {
   load_balancer_arn = aws_lb.load-balancer.arn
   port = var.ingress_rules_from_trusted[count.index].port
   protocol = upper(var.ingress_rules_from_trusted[count.index].protocol)
-
+  
 
   default_action {
     type             = "forward"

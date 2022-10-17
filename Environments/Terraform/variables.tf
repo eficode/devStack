@@ -75,6 +75,11 @@ variable "ingress_rules_from_trusted" {
           description = "HTTP port 8080"
         },
         {
+          port   =  8082
+          protocol    = "tcp"
+          description = "HTTP port 8082"
+        },
+        {
           port   =  2376
           protocol    = "tcp"
           description = "Docker port"

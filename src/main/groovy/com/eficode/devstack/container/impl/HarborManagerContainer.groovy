@@ -78,12 +78,12 @@ class HarborManagerContainer extends DoodContainer {
 
 
         cmdOutput = runBashCommandInContainer("""
-            mkdir -p "${installPath}" ; \\ 
-            cd "${installPath}" ; \\
-            wget https://github.com/goharbor/harbor/releases/download/$harborVersion/harbor-online-installer-${harborVersion}.tgz ; \\
-            tar xzvf harbor-online-installer-${harborVersion}.tgz ; \\
-            cd harbor ; \\
-            ls -la ; \\
+            mkdir -p "${installPath}" && \\ 
+            cd "${installPath}" && \\
+            wget https://github.com/goharbor/harbor/releases/download/$harborVersion/harbor-online-installer-${harborVersion}.tgz &&  \\
+            tar xzvf harbor-online-installer-${harborVersion}.tgz &&  \\
+            cd harbor &&  \\
+            ls -la &&  \\
             echo status: \$?
         """, 100)
         assert cmdOutput.last() == "status: 0": "Error downloading and extracting harbor:" + cmdOutput.join("\n")

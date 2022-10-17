@@ -8,11 +8,6 @@ import spock.lang.Shared
 class JsmH2DeploymentTest extends DevStackSpec {
 
 
-    @Shared
-    String jiraBaseUrl = "http://jira.domain.se:8080"
-
-    @Shared
-    String jira2BaseUrl = "http://jira2.domain.se:8082"
 
 
     @Shared
@@ -23,25 +18,23 @@ class JsmH2DeploymentTest extends DevStackSpec {
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
 
         log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
 
-        dockerClient = resolveDockerClient()
 
-        cleanupContainerNames = ["jira.domain.se", "jira2.domain.se"]
-        cleanupContainerPorts = [8080, 8082]
+        cleanupContainerNames = ["jira.domain.se", "jira2.domain.se", "localhost"]
+        cleanupContainerPorts = [8080, 8082, 80]
 
         disableCleanup = false
 
 
     }
 
-    def "test setupDeployment"(String baseurl, String port) {
+    def "test setupDeployment"(String baseurl, String port, String dockerHost, String certPath) {
         setup:
 
-        JsmH2Deployment jsmDep = new JsmH2Deployment(baseurl)
-        jsmDep.setupSecureDockerConnection(dockerRemoteHost, dockerCertPath)
+        JsmH2Deployment jsmDep = new JsmH2Deployment(baseurl, dockerHost, certPath)
+
 
         jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
         jsmDep.appsToInstall = [
@@ -54,19 +47,16 @@ class JsmH2DeploymentTest extends DevStackSpec {
         then:
         setupSuccess
         Unirest.get(baseurl).asEmpty().status == 200
-        jsmDep.jsmContainer.inspectContainer().networkSettings.ports.find {it.key == "$port/tcp"}
-
+        jsmDep.jsmContainer.inspectContainer().networkSettings.ports.find { it.key == "$port/tcp" }
 
 
         where:
-        baseurl | port
-        jira2BaseUrl | "8082"
-        jiraBaseUrl | "8080"
+        baseurl                       | port   | dockerHost       | certPath
+        "http://localhost"            | "80"   | ""               | ""
+        "http://jira2.domain.se:8082" | "8082" | dockerRemoteHost | dockerCertPath
+        "http://jira.domain.se:8080"  | "8080" | dockerRemoteHost | dockerCertPath
 
     }
-
-
-
 
 
 }
