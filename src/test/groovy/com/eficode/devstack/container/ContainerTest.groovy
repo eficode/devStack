@@ -18,27 +18,24 @@ class ContainerTest extends DevStackSpec {
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
 
         log = LoggerFactory.getLogger(ContainerTest.class)
 
-        dockerClient = resolveDockerClient()
 
-        containerNames = ["spock-alpine1", "spock-alpine2"]
-        containerPorts = []
+        cleanupContainerNames = ["spock-alpine1", "spock-alpine2"]
+        cleanupContainerPorts = []
 
         disableCleanup = false
     }
 
 
-
-    def testNetworking() {
+    def testNetworking(String dockerHost, String certPath) {
 
         setup:
         String networkName = "spock-network"
         log.info("Testing CRUD of networks")
 
-        AlpineContainer alpine1 = new AlpineContainer(dockerRemoteHost, dockerCertPath)
+        AlpineContainer alpine1 = new AlpineContainer(dockerHost, certPath)
         alpine1.containerName = "spock-alpine1"
 
         if (alpine1.created) {
@@ -46,7 +43,7 @@ class ContainerTest extends DevStackSpec {
         }
         alpine1.createSleepyContainer()
 
-        AlpineContainer alpine2 = new AlpineContainer(dockerRemoteHost, dockerCertPath)
+        AlpineContainer alpine2 = new AlpineContainer(dockerHost, certPath)
         alpine2.containerName = "spock-alpine2"
         if (alpine2.created) {
             assert alpine2.stopAndRemoveContainer(0)
@@ -131,18 +128,25 @@ class ContainerTest extends DevStackSpec {
 
 
         when: "Starting both containers in the same network"
-        alpine1.setContainerNetworks([spockNetwork])
-        alpine2.setContainerNetworks([spockNetwork])
+        assert alpine1.setContainerNetworks([spockNetwork]) : "Error setting network for $alpine1.containerName to: "  + [spockNetwork]
+        assert alpine2.setContainerNetworks([spockNetwork]) : "Error setting network for $alpine2.containerName to: "  + [spockNetwork]
         alpine1.startContainer()
         alpine2.startContainer()
 
         then: "They should both be able to ping each other using containerName and ip"
-        alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.containerName).any {it.contains("0% packet loss")}
-        alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.containerName).any {it.contains("0% packet loss")}
-        alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.ips.first()).any {it.contains("0% packet loss")}
-        alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.ips.first()).any {it.contains("0% packet loss")}
+
+        alpine1.getContainerNetworks() == [spockNetwork]
+        alpine2.getContainerNetworks() == [spockNetwork]
+        alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.containerName).any { it.contains("0% packet loss") }
+        alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.containerName).any { it.contains("0% packet loss") }
+        alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.ips.first()).any { it.contains("0% packet loss") }
+        alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.ips.first()).any { it.contains("0% packet loss") }
 
 
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
 
     }
 
@@ -150,7 +154,7 @@ class ContainerTest extends DevStackSpec {
 
         setup:
         String expectedOutput = "host.domain.com"
-        ArrayList<String>testPatterns = [
+        ArrayList<String> testPatterns = [
                 "host.domain.com",
                 "host.domain.com",
                 "http://host.domain.com",
@@ -172,7 +176,7 @@ class ContainerTest extends DevStackSpec {
 
 
         expect:
-        testPatterns.each {url->
+        testPatterns.each { url ->
             assert new AlpineContainer().extractDomainFromUrl(url) == expectedOutput
         }
 

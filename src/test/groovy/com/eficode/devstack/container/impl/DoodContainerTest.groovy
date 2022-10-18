@@ -11,31 +11,34 @@ class DoodContainerTest extends DevStackSpec {
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
 
         log = LoggerFactory.getLogger(DoodContainerTest.class)
 
-        dockerClient = resolveDockerClient()
 
-        containerNames = ["dood.domain.se"]
-        containerPorts = []
+        cleanupContainerNames = ["dood.domain.se"]
+        cleanupContainerPorts = []
 
-        disableCleanup = true
+        disableCleanup = false
     }
 
-    def "Test the basics"() {
+    def "Test the basics with local and remote"(String dockerHost, String certPath) {
 
         when:
-        DoodContainer dc = new DoodContainer(dockerRemoteHost, dockerCertPath)
+        DoodContainer dc = new DoodContainer(dockerHost, certPath)
+        if (dockerHost && certPath) {
+            assert dc.dockerClient.dockerClientConfig.host == dc.extractDomainFromUrl(dockerHost): "Connection to remote Docker host was not setup"
+
+        }
+
         dc.containerName = "dood.domain.se"
-        String containerId = dc.createContainer([],["tail", "-f", "/dev/null"])
+        String containerId = dc.createContainer([], ["tail", "-f", "/dev/null"])
 
 
         then:
         containerId == dc.id
         dc.containerName == "dood.domain.se"
         dc.inspectContainer().name == "/dood.domain.se"
-        dc.inspectContainer().mounts.any {it.source == "/var/run/docker.sock" && it.destination == "/var/run/docker.sock"}
+        dc.inspectContainer().mounts.any { it.source == "/var/run/docker.sock" && it.destination == "/var/run/docker.sock" }
         dc.status() == ContainerState.Status.Created
         dc.startContainer()
         dc.status() == ContainerState.Status.Running
@@ -47,6 +50,10 @@ class DoodContainerTest extends DevStackSpec {
         cmdOut == containerId
 
 
+        where:
+        dockerHost       | certPath
+        dockerRemoteHost | dockerCertPath
+        ""               | ""
 
 
     }

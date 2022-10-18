@@ -4,12 +4,11 @@ import com.eficode.devstack.DevStackSpec
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
+import kong.unirest.HttpResponse
 import kong.unirest.Unirest
 import kong.unirest.UnirestInstance
 import org.slf4j.LoggerFactory
 
-import java.time.Duration
-import java.time.temporal.TemporalUnit
 import java.util.concurrent.TimeoutException
 
 class JenkinsContainerTest extends DevStackSpec{
@@ -19,35 +18,32 @@ class JenkinsContainerTest extends DevStackSpec{
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
-
         log = LoggerFactory.getLogger(JenkinsContainerTest.class)
 
-        dockerClient = resolveDockerClient()
 
-        containerNames = ["jenkins.domain.se", "jenkins-agent.domain.se"]
-        containerPorts = [8080, 50000]
+        cleanupContainerNames = ["jenkins.domain.se", "jenkins-agent.domain.se", "localhost"]
+        cleanupContainerPorts = [8080, 50000]
+
     }
 
-    def "Test the basics"() {
+    def "Test the basics"(String dockerHost, String certPath, String baseUrl) {
 
         when:
-        JenkinsContainer jc = new JenkinsContainer(dockerRemoteHost, dockerCertPath)
-        jc.containerName = "jenkins.domain.se"
+        JenkinsContainer jc = new JenkinsContainer(dockerHost, certPath)
+        jc.containerName = JenkinsContainer.extractDomainFromUrl(baseUrl)
         String containerId = jc.createContainer()
 
 
         then:
         containerId == jc.id
-        jc.containerName == "jenkins.domain.se"
-        jc.inspectContainer().name == "/jenkins.domain.se"
+        jc.inspectContainer().name == "/" + JenkinsContainer.extractDomainFromUrl(baseUrl)
         jc.status() == ContainerState.Status.Created
         jc.startContainer()
         jc.status() == ContainerState.Status.Running
 
         when:
         long start = System.currentTimeMillis()
-        String jenkinsUrl = "http://" + jc.containerName + ":" + jc.containerMainPort + "/login"
+        //String baseUrl = "http://" + jc.containerName + ":" + jc.containerMainPort + "/login"
 
         log.info("Waiting for Jenkins WEB-UI to become responsive")
 
@@ -66,20 +62,22 @@ class JenkinsContainerTest extends DevStackSpec{
         while (true) {
             if (start + (2 * 60000 ) > System.currentTimeMillis()) {
                 try {
-                    int status = unirestInstance.get(jenkinsUrl).socketTimeout(5000).connectTimeout(10000).asEmpty()?.status
+                    int status = unirestInstance.get(baseUrl + "/login").socketTimeout(5000).connectTimeout(10000).asEmpty()?.status
                     if (status == 200){
                         log.info("\tJenkins is ready and responded with HTTP status:" + status + " after " + ((System.currentTimeMillis() - start)/1000).round() + "s")
                         break
-                    }else {
+                    }
+                    else {
                         log.info("\tJenkins responded with HTTP status:" + status)
                         sleep(2000)
                     }
                 }catch(ex) {
                     log.warn("\tError accessing Jenkins WEB-UI:" + ex.message)
+                    sleep(2000)
                 }
             }else {
                 log.error("\tTimed our waiting for Jenkins after:" + ((System.currentTimeMillis() - start)/1000).round() + "s")
-                throw new TimeoutException("Error waiting for Jenkins WEB to become available:" + jenkinsUrl)
+                throw new TimeoutException("Error waiting for Jenkins WEB to become available:" + baseUrl)
             }
 
         }
@@ -95,6 +93,10 @@ class JenkinsContainerTest extends DevStackSpec{
 
 
 
+        where:
+        dockerHost       | certPath       | baseUrl
+        ""               | ""             | "http://localhost:8080"
+        dockerRemoteHost | dockerCertPath | "http://jenkins.domain.se:8080"
 
 
 

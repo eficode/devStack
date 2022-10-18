@@ -17,26 +17,19 @@ class DoodContainer implements Container {
     String containerImageTag = "latest"
 
 
-    DoodContainer() {
 
-        prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock")
+    DoodContainer(String dockerHost = "", String dockerCertPath = "") {
 
-    }
-
-    /**
-     * Setup a secure connection to a remote docker
-     * @param dockerHost ex: https://docker.domain.com:2376
-     * @param dockerCertPath ex: src/test/resources/dockerCert
-     */
-    DoodContainer(String dockerHost, String dockerCertPath) {
-        assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        if (dockerHost && dockerCertPath) {
+            assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        }
         prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock")
     }
 
     @Override
     boolean runOnFirstStartup() {
 
-        ArrayList<String> cmdOutput = runBashCommandInContainer("apt-get update && apt upgrade -y && apt-get install -y locales htop nano inetutils-ping net-tools && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8; echo status: \$?", 80)
+        ArrayList<String> cmdOutput = runBashCommandInContainer("apt-get update && apt upgrade -y && apt-get install -y locales htop nano inetutils-ping net-tools && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8; echo status: \$?", 160)
         assert cmdOutput.last() == "status: 0": "Error installing basic dependencies:" + cmdOutput.join("\n")
 
 

@@ -27,7 +27,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
     BitbucketInstanceManagerRest bitbucketRest
     String bitbucketLicense
 
-    JsmAndBitbucketH2Deployment(String jiraBaseUrl, String bitbucketBaseUrl) {
+    JsmAndBitbucketH2Deployment(String jiraBaseUrl, String bitbucketBaseUrl, String dockerHost = "", String dockerCertPath = "") {
 
         this.jiraBaseUrl = jiraBaseUrl
         this.jiraRest = new JiraInstanceManagerRest(jiraBaseUrl)
@@ -36,7 +36,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
         this.bitbucketRest = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
 
 
-        this.subDeployments = [new JsmH2Deployment(jiraBaseUrl), new BitbucketH2Deployment(bitbucketBaseUrl)]
+        this.subDeployments = [new JsmH2Deployment(jiraBaseUrl, dockerHost, dockerCertPath), new BitbucketH2Deployment(bitbucketBaseUrl, dockerHost, dockerCertPath)]
 
 
     }
@@ -123,6 +123,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
 
         jsmH2Deployment.deploymentNetworkName = this.containerNetworkName
         bitbucketH2Deployment.deploymentNetworkName = this.containerNetworkName
+        jsmContainer.createBridgeNetwork(this.containerNetworkName)
 
         ExecutorService threadPool = Executors.newFixedThreadPool(2)
         Future jsmFuture = threadPool.submit(new SetupDeploymentTask(jsmH2Deployment))
@@ -130,7 +131,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
         threadPool.shutdown()
 
 
-        while (!jsmFuture.done || !bitbucketFuture.done) {
+        while (!jsmFuture.done && !bitbucketFuture.done) {
             log.info("Waiting for deployments to finish")
             log.info("\tJSM Finished:" + jsmFuture.done)
             log.info("\tBitbucket Finished:" + bitbucketFuture.done)
@@ -174,9 +175,9 @@ class JsmAndBitbucketH2Deployment implements Deployment {
 
 
             String appLinkScript = getClass().getResourceAsStream("/com/eficode/devstack/deployment/jira/scripts/CreateBitbucketLink.groovy").text
-            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_URL", bitbucketBaseUrl)
-            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_USER", "admin")
-            appLinkScript = appLinkScript.replaceFirst("BITBUCKET_PASSWORD", "admin")
+            appLinkScript = appLinkScript.replaceAll("BITBUCKET_URL", bitbucketBaseUrl)
+            appLinkScript = appLinkScript.replaceAll("BITBUCKET_USER", "admin")
+            appLinkScript = appLinkScript.replaceAll("BITBUCKET_PASSWORD", "admin")
 
 
 
@@ -201,6 +202,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
 
     }
 
+    /*
     @Override
     void setupSecureDockerConnection(String host, String certPath) {
 
@@ -208,6 +210,8 @@ class JsmAndBitbucketH2Deployment implements Deployment {
             deployment.setupSecureDockerConnection(host, certPath)
         }
     }
+
+     */
 
     /**
      * Install apps in to JIRA

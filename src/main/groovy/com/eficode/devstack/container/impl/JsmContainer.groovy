@@ -16,15 +16,10 @@ class JsmContainer implements Container {
     String containerImageTag = "latest"
     long jvmMaxRam = 6000
 
-    JsmContainer() {}
-
-    /**
-     * Setup a secure connection to a remote docker
-     * @param dockerHost ex: https://docker.domain.com:2376
-     * @param dockerCertPath ex: src/test/resources/dockerCert
-     */
-    JsmContainer(String dockerHost, String dockerCertPath) {
-        assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+    JsmContainer(String dockerHost = "", String dockerCertPath = "") {
+        if (dockerHost && dockerCertPath) {
+            assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        }
     }
 
 

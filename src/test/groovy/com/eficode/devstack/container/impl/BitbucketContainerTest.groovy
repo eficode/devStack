@@ -13,49 +13,41 @@ class BitbucketContainerTest extends DevStackSpec {
     @Shared
     static Logger log = LoggerFactory.getLogger(BitbucketContainerTest.class)
 
-    @Shared
-    String bitbucketBaseUrl = "http://bitbucket.domain.se:7990"
-
-
 
     def setupSpec() {
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
 
         log = LoggerFactory.getLogger(BitbucketContainerTest.class)
 
-        dockerClient = resolveDockerClient()
-
-        containerNames = ["bitbucket.domain.se"]
-        containerPorts = [7990]
+        cleanupContainerNames = ["bitbucket.domain.se", "localhost"]
+        cleanupContainerPorts = [7990]
 
         disableCleanup = false
 
     }
 
 
-
-    def "test setupContainer"() {
+    def "test setupContainer"(String dockerHost, String certPath, String baseUrl) {
         setup:
         log.info("Testing setup of BB container using trait method")
-        BitbucketContainer bbc = new BitbucketContainer(bitbucketBaseUrl, dockerRemoteHost, dockerCertPath)
-        bbc.containerName = bbc.extractDomainFromUrl(bitbucketBaseUrl)
-        BitbucketInstanceManagerRest bbr = new BitbucketInstanceManagerRest(bitbucketBaseUrl)
+        BitbucketContainer bbc = new BitbucketContainer(baseUrl, dockerHost, certPath)
+        bbc.containerName = bbc.extractDomainFromUrl(baseUrl)
+        BitbucketInstanceManagerRest bbr = new BitbucketInstanceManagerRest(baseUrl)
 
 
         when:
         String containerId = bbc.createContainer()
-        ContainerInspectResponse containerInspect =  dockerClient.inspectContainer(containerId).content
+        ContainerInspectResponse containerInspect = dockerClient.inspectContainer(containerId).content
 
 
         then:
-        assert containerInspect.name ==  "/" + bbc.containerName : "BB was not given the expected name"
-        assert containerInspect.state.status == ContainerState.Status.Created : "BB Container status is of unexpected value"
-        assert containerInspect.state.running == false : "BB Container was started even though it should only have been created"
-        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.find {it == "atlassian/bitbucket:latest"} : "BB container was created with incorrect Docker image"
-        assert containerInspect.hostConfig.portBindings.containsKey("7990/tcp") : "BB Container port binding was not setup correctly"
+        assert containerInspect.name == "/" + bbc.containerName: "BB was not given the expected name"
+        assert containerInspect.state.status == ContainerState.Status.Created: "BB Container status is of unexpected value"
+        assert containerInspect.state.running == false: "BB Container was started even though it should only have been created"
+        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.find { it == "atlassian/bitbucket:latest" }: "BB container was created with incorrect Docker image"
+        assert containerInspect.hostConfig.portBindings.containsKey("7990/tcp"): "BB Container port binding was not setup correctly"
         log.info("\tBB Container was setup correctly")
 
         expect:
@@ -63,6 +55,11 @@ class BitbucketContainerTest extends DevStackSpec {
         bbr.setApplicationProperties(new File("resources/bitbucket/licenses/bitbucketLicense").text)
         bbr.status == "RUNNING"
 
+
+        where:
+        dockerHost       | certPath       | baseUrl
+        ""               | ""             | "http://localhost:7990"
+        dockerRemoteHost | dockerCertPath | "http://bitbucket.domain.se:7990"
 
 
     }

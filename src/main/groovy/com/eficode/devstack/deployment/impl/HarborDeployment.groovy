@@ -12,10 +12,10 @@ class HarborDeployment implements Deployment{
     ArrayList<Container> containers = []
 
 
-    HarborDeployment(String baseUrl,  String harborVersion = "v2.6.0") {
+    HarborDeployment(String baseUrl,  String harborVersion = "v2.6.0", String baseDir = "/opt/", String dockerHost = "", String dockerCertPath = "") {
 
 
-        HarborManagerContainer managerContainer = new HarborManagerContainer(baseUrl, harborVersion)
+        HarborManagerContainer managerContainer = new HarborManagerContainer(baseUrl, harborVersion, baseDir, dockerHost, dockerCertPath)
         this.containers = [managerContainer]
 
 
@@ -86,7 +86,7 @@ class HarborDeployment implements Deployment{
 
         ArrayList<ContainerSummary> containers = managerContainer.dockerClient.ps().content
 
-        containers = containers.findAll { it.image.startsWith("goharbor") || it.names.first() == "/harbor.domain.se-manager" }
+        containers = containers.findAll { it.image.startsWith("goharbor") || it.names.first() == managerContainer.containerName}
 
         return containers
 

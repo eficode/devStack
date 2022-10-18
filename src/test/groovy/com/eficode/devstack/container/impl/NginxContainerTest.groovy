@@ -1,31 +1,12 @@
 package com.eficode.devstack.container.impl
 
 import com.eficode.devstack.DevStackSpec
-import de.gesellix.docker.client.DockerClient
-import de.gesellix.docker.client.DockerClientImpl
-import de.gesellix.docker.engine.DockerClientConfig
-import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.remote.api.ContainerInspectResponse
-import de.gesellix.docker.remote.api.ContainerSummary
 import kong.unirest.Unirest
-import org.apache.commons.io.FileUtils
-import org.apache.commons.io.filefilter.FileFileFilter
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
-import spock.lang.Specification
-
 
 class NginxContainerTest extends DevStackSpec {
-
-
-    @Shared
-    File localNginxRoot = new File("/")
-
-
-
-    @Shared
-    String nginxUrl = "http://docker.domain.se"
 
 
     def setupSpec() {
@@ -33,49 +14,46 @@ class NginxContainerTest extends DevStackSpec {
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
 
         log = LoggerFactory.getLogger(this.class)
 
-        containerNames = ["Nginx"]
-        containerPorts = [80]
-
-
+        cleanupContainerNames = ["Nginx"]
+        cleanupContainerPorts = [80]
 
 
     }
 
 
-
-
-    def "test default setup"() {
+    def "test default setup"(String dockerHost, String certPath) {
 
         setup:
 
-        NginxContainer nginxC = new NginxContainer(dockerRemoteHost, dockerCertPath)
-
+        NginxContainer nginxC = new NginxContainer(dockerHost, certPath)
 
         expect:
         nginxC.createContainer()
         nginxC.startContainer()
 
-        //cleanup:
-        //nginxC.stopAndRemoveContainer()
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
 
     }
 
 
-    def "test setting nginx root bind dir"() {
+    def "test setting nginx root bind dir"(String dockerHost, String certPath, String baseUrl) {
 
         setup:
+        String localNginxRoot = "/tmp/"
         log.info("Testing setting nginx root dir")
-        log.info("\tWill use dir:" + localNginxRoot.absolutePath)
+        log.info("\tWill use dir:" + localNginxRoot)
 
-        NginxContainer nginxC = new NginxContainer(dockerRemoteHost, dockerCertPath)
+        NginxContainer nginxC = new NginxContainer(dockerHost, certPath)
         //stopAndRemoveContainer([nginxC.containerName])
 
         when: "bindHtmlRoot should add a mount to the mounts array"
-        nginxC.bindHtmlRoot(localNginxRoot.absolutePath, true)
+        nginxC.bindHtmlRoot(localNginxRoot, false)
 
         then:
         nginxC.mounts.size() == 1
@@ -83,36 +61,32 @@ class NginxContainerTest extends DevStackSpec {
         when: "After creating the container, the inspect result should confirm the mount"
         String containerId = nginxC.createContainer()
         log.info("\tCreated container:" + containerId)
-        assert nginxC.startContainer() : "Error starting container"
+        assert nginxC.startContainer(): "Error starting container"
         ContainerInspectResponse inspectResponse = dockerClient.inspectContainer(nginxC.id).getContent()
         log.info("\tContainer created")
 
         then:
-        inspectResponse.mounts.find { it.source == localNginxRoot.absolutePath }
+        inspectResponse.hostConfig.mounts.find {it.source == localNginxRoot}
         log.info("\tDocker API confirms mount was created")
 
-        /**
-         * Needs to be reworked for remote docker engines
+        when: "Creating a file in the mounted dir"
+        ArrayList<String> cmdOutput = nginxC.runBashCommandInContainer("mkdir -p /usr/share/nginx/html/nginxTest && touch /usr/share/nginx/html/nginxTest/a.file && echo status: \$?")
 
 
-         expect: "Nginx should return the expected files"
-         log.info("\tConfirming Nginx returns files found in the bind directory")
-         localNginxRoot.listFiles().findAll {it.isFile()}.every {file ->
-         log.debug("\t"*2 + "Requesting file:" + file.name)
-         int status = Unirest.get(nginxUrl + "/" + file.name).asEmpty().status
-         log.debug("\t"*3 + "HTTP Status:" + status)
-         return status == 200
-         }
-
-         *
-         */
+        then: "Nginx should return the expected files"
+        cmdOutput.last().contains("status: 0")
+        Unirest.get(baseUrl + "/nginxTest/a.file").asEmpty().status == 200
+        Unirest.get(baseUrl + "/MISSINGFILE").asEmpty().status == 404
 
 
-        Unirest.get(nginxUrl + "/MISSINGFILE").asEmpty().status == 404
+        cleanup:
+        nginxC.runBashCommandInContainer("rm -rf /usr/share/nginx/html/nginxTest")
 
 
-        //cleanup:
-        //nginxC.stopAndRemoveContainer()
+        where:
+        dockerHost       | certPath       | baseUrl
+        ""               | ""             | "http://localhost"
+        dockerRemoteHost | dockerCertPath | "http://docker.domain.se"
 
 
     }

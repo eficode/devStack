@@ -1,2 +1,7 @@
 /target/
 /.idea/vcs.xml
+/Environments/Terraform/.terraform/
+/Environments/Terraform/.terraform.lock.hcl
+/Environments/Terraform/.terraform.tfstate.lock.info
+/Environments/Terraform/terraform.tfstate
+/Environments/Terraform/terraform.tfstate.backup

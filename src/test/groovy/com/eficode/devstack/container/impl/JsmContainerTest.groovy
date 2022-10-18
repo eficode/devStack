@@ -1,17 +1,11 @@
 package com.eficode.devstack.container.impl
 
 import com.eficode.devstack.DevStackSpec
-import de.gesellix.docker.client.DockerClientImpl
-import de.gesellix.docker.engine.DockerClientConfig
-import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.core.ClientException
 import org.apache.commons.io.FileUtils
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import spock.lang.Shared
-import spock.lang.Specification
 
 import java.nio.file.Files
 import java.nio.file.Path
@@ -24,23 +18,20 @@ class JsmContainerTest extends DevStackSpec {
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "resources/dockerCert"
 
-        dockerClient = resolveDockerClient()
 
         log = LoggerFactory.getLogger(JsmContainerTest.class)
 
-        dockerClient = resolveDockerClient()
-
-        containerNames = ["jira.domain.se", "JSM", "Spoc-JSM"]
-        containerPorts = [8080]
+        cleanupContainerNames = ["jira.domain.se", "JSM", "Spoc-JSM"]
+        cleanupContainerPorts = [8080]
     }
 
 
 
-    def "test isCreated"() {
+    def "test isCreated"(String dockerHost, String certPath) {
 
         when:
         log.info("Testing isCreated")
-        JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
+        JsmContainer jsm = new JsmContainer(dockerHost, certPath)
 
         then:
         !jsm.isCreated()
@@ -62,6 +53,10 @@ class JsmContainerTest extends DevStackSpec {
         !jsm.isCreated()
         log.info("\tisCreated now again returns false")
 
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
 
     }
 
@@ -83,10 +78,10 @@ class JsmContainerTest extends DevStackSpec {
 
 
 
-    def "test setupContainer"() {
+    def "test setupContainer"(String dockerHost, String certPath) {
         setup:
         log.info("Testing setup of JSM container using trait method")
-        JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
+        JsmContainer jsm = new JsmContainer(dockerHost, certPath)
 
         when:
         String containerId = jsm.createContainer()
@@ -102,15 +97,19 @@ class JsmContainerTest extends DevStackSpec {
         log.info("\tJSM Container was setup correctly")
 
 
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
 
     }
 
 
 
-    def "test non standard parameters"() {
+    def "test non standard parameters"(String dockerHost, String certPath) {
         setup:
         log.info("Testing setup of JSM container using dedicated JSM method")
-        JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
+        JsmContainer jsm = new JsmContainer(dockerHost, certPath)
         jsm.containerName = "Spoc-JSM"
         jsm.containerImageTag = "4-ubuntu-jdk11"
         jsm.containerMainPort = "666"
@@ -129,17 +128,21 @@ class JsmContainerTest extends DevStackSpec {
         log.info("\tJSM Container was setup correctly")
 
 
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
 
     }
 
 
 
-   def "test stopAndRemoveContainer"() {
+   def "test stopAndRemoveContainer"(String dockerHost, String certPath) {
 
 
        setup:
        log.info("Testing stop and removal of JSM container")
-       JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
+       JsmContainer jsm = new JsmContainer(dockerHost, certPath)
 
        when: "Setting up the container with the trait method"
        log.info("\tSetting up JSM container using trait method")
@@ -171,16 +174,22 @@ class JsmContainerTest extends DevStackSpec {
        ClientException ex2 = thrown(ClientException)
        assert ex2.message.startsWith("Client error : 404 Not Found") : "Unexpected exception thrown when inspecting the deleted container"
 
+       where:
+       dockerHost       | certPath
+       ""               | ""
+       dockerRemoteHost | dockerCertPath
+
+
    }
 
-    def "test startContainer, runBashCommandInContainer, copyFileToContainer and copyFilesFromContainer"() {
+    def "test startContainer, runBashCommandInContainer, copyFileToContainer and copyFilesFromContainer"(String dockerHost, String certPath) {
 
         setup:
         String containerSrcPath = "/opt/atlassian/jira/atlassian-jira/WEB-INF/classes/com/atlassian/jira/"
         String containerDstDir = "/var/atlassian/application-data/jira/"
 
         log.info("Testing copying files to and from JSM container")
-        JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
+        JsmContainer jsm = new JsmContainer(dockerHost, certPath)
         String containerId = jsm.createContainer()
         log.info("\tCreated container:" + containerId)
 
@@ -227,6 +236,13 @@ class JsmContainerTest extends DevStackSpec {
         cleanup:
         log.info("\tDeleting temp dir:" + tempDir.toString())
         FileUtils.deleteDirectory(tempDir.toFile())
+
+
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
+
     }
 
 
