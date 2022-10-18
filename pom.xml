@@ -163,6 +163,7 @@
                                     <exclude>com.google.code.gson:gson</exclude>
                                     <exclude>org.apache.httpcomponents</exclude>
                                     <exclude>commons-*</exclude>
+                                    <exclude>org.codehaus.groovy:groovy-astbuilder</exclude>
 
                                 </excludes>
 
@@ -178,6 +179,17 @@
                             This means that if those dependencies are not properly relocated and there is a class-loading conflict,
                             user would not be able to figure out where the conflicting dependency is. -->
                             <createDependencyReducedPom>true</createDependencyReducedPom>
+
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
 
                         </configuration>
                     </execution>
