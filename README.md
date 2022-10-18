@@ -21,3 +21,58 @@
 
 5. Go to Environments/Terraform and run terraform apply
     * Note the "Hosts-record" output, this needs to be added to your /etc/hosts
+
+
+## Using DevStack in your project
+
+A note on versions, DevStack is cross-compiled for both Groovy 3 and 2.5, these editions are also available in a standalone edition with shaded dependencies.
+
+The standalone edition should alleviate dependency issues but is also larger
+
+Examples:
+ * com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5
+   * DevStack version 2.0.0, compiled for groovy 2.5
+ * devstack:2.0.0-SNAPSHOT-groovy-3.0:jar:standalone
+   * DevStack version 2.0.0, compiled for groovy 3, standalone edition.
+
+To find the latest version, check the "packages" branch: https://github.com/eficode/devStack/tree/packages/repository/com/eficode/devstack
+
+
+### Maven install
+
+```bash
+
+mvn dependency:get -Dartifact=com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5 -DremoteRepositories=https://github.com/eficode/DevStack/raw/packages/repository/
+
+
+mvn dependency:get -Dartifact=com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5:jar:standalone -DremoteRepositories=https://github.com/eficode/DevStack/raw/packages/repository/
+
+```
+
+
+### POM dependency 
+
+```xml
+ ..
+ .... 
+<dependencies>
+   <dependency>
+         <groupId>com.eficode</groupId>
+         <artifactId>devstack</artifactId>
+         <version>2.0.0-SNAPSHOT-groovy-3.0</version>
+         <!--Optional standalone classifier-->
+         <!--classifier>standalone</classifier-->
+     </dependency>
+</dependencies>
+
+..
+....
+<repositories>
+   <repository>
+      <id>eficode-github-DevStack</id>
+      <url>https://github.com/eficode/DevStack/raw/packages/repository/</url>
+   </repository>
+</repositories>
+..
+....
+```
