@@ -79,7 +79,7 @@ class HarborManagerContainer extends DoodContainer {
 
 
         cmdOutput = runBashCommandInContainer("""
-            mkdir -p "${installPath}" && \\ 
+            mkdir -p "${installPath}" && \\
             cd "${installPath}" && \\
             wget https://github.com/goharbor/harbor/releases/download/$harborVersion/harbor-online-installer-${harborVersion}.tgz &&  \\
             tar xzvf harbor-online-installer-${harborVersion}.tgz &&  \\

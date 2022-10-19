@@ -8,7 +8,8 @@ import org.slf4j.LoggerFactory
 
 trait Deployment {
 
-    abstract Logger log // = LoggerFactory.getLogger(self.class)
+
+    Logger log  = LoggerFactory.getLogger(this.class)
     abstract ArrayList<Container> containers
     abstract String friendlyName
     String deploymentNetworkName = "bridge"

@@ -21,7 +21,6 @@ class JenkinsAndHarborDeployment implements Deployment {
 
     JenkinsAndHarborDeployment(String jenkinsBaseUrl, String harborBaseUrl, String dockerHost = "", String dockerCertPath = "") {
 
-
         subDeployments = [
                 new JenkinsDeployment(jenkinsBaseUrl, dockerHost, dockerCertPath),
                 new HarborDeployment(harborBaseUrl, "v2.6.1", "/tmp/", dockerHost, dockerCertPath)
@@ -119,6 +118,15 @@ class JenkinsAndHarborDeployment implements Deployment {
 
         return success
 
+
+    }
+
+    @Override
+    boolean stopAndRemoveDeployment() {
+
+        subDeployments.each{
+            it.stopAndRemoveDeployment()
+        }
 
     }
 

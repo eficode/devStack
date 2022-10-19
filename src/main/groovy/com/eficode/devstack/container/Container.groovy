@@ -266,7 +266,7 @@ trait Container {
     }
 
     ContainerState.Status status() {
-        return inspectContainer().state.status
+        return inspectContainer()?.state?.status
     }
 
     boolean stopAndRemoveContainer(Integer timeoutS = 5) {
