@@ -5,11 +5,14 @@ import com.eficode.devstack.container.impl.JenkinsContainer
 import com.eficode.devstack.deployment.Deployment
 import kong.unirest.Unirest
 import kong.unirest.UnirestInstance
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import java.util.concurrent.TimeoutException
 
 class JenkinsDeployment implements Deployment{
 
+    Logger log = LoggerFactory.getLogger(this.class)
     String friendlyName = "Jenkins Deployment"
     ArrayList<Container> containers = []
     String baseUrl
@@ -21,6 +24,8 @@ class JenkinsDeployment implements Deployment{
         jenkinsContainer.containerName  = JenkinsContainer.extractDomainFromUrl(jenkinsBaseUrl)
         jenkinsContainer.containerMainPort = JenkinsContainer.extractPortFromUrl(jenkinsBaseUrl)
 
+
+
     }
 
     JenkinsContainer getJenkinsContainer() {
@@ -30,7 +35,10 @@ class JenkinsDeployment implements Deployment{
     @Override
     boolean setupDeployment() {
 
+
+        jenkinsContainer.containerDefaultNetworks = [this.deploymentNetworkName]
         jenkinsContainer.createContainer()
+
         boolean containerSetupSuccess = jenkinsContainer.startContainer()
         assert containerSetupSuccess : "Error starting Jenkins container"
         log.info("\tJenkins container has started")

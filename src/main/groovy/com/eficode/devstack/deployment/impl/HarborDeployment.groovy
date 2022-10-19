@@ -1,15 +1,20 @@
 package com.eficode.devstack.deployment.impl
 
 import com.eficode.devstack.container.Container
-import com.eficode.devstack.container.impl.DoodContainer
 import com.eficode.devstack.container.impl.HarborManagerContainer
 import com.eficode.devstack.deployment.Deployment
+import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
+import de.gesellix.docker.remote.api.ContainerWaitExitError
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 class HarborDeployment implements Deployment{
 
+    Logger log = LoggerFactory.getLogger(this.class)
     String friendlyName = "Harbor Deployment"
     ArrayList<Container> containers = []
+    String deploymentNetworkName = "harbor"
 
 
     HarborDeployment(String baseUrl,  String harborVersion = "v2.6.0", String baseDir = "/opt/", String dockerHost = "", String dockerCertPath = "") {
@@ -28,8 +33,24 @@ class HarborDeployment implements Deployment{
     @Override
     boolean setupDeployment() {
 
-        managerContainer.createContainer([],["tail", "-f", "/dev/null"])
-        managerContainer.startContainer()
+
+        managerContainer.containerDefaultNetworks = [deploymentNetworkName]
+        assert managerContainer.createContainer([],["tail", "-f", "/dev/null"]) : "Error creating container"
+        assert managerContainer.startContainer() : "Error starting container"
+
+        sleep(1000)
+        long start = System.currentTimeMillis()
+        while (harborContainers.state.find {it != ContainerState.Status.Running.value}) {
+
+            log.info("\tWaiting for containers to start")
+            harborContainers.collectEntries {[it.names.first(), it.state]}.each {log.debug("\t\t" + it)}
+
+            assert start + (2*60000) < System.currentTimeMillis() : "Timed out waiting for harbor containers to start"
+            sleep(1500)
+        }
+
+        return true
+
     }
 
     @Override
@@ -40,6 +61,7 @@ class HarborDeployment implements Deployment{
         ArrayList<String> cmdOutput = managerContainer.runBashCommandInContainer("cd ${managerContainer.installPath}/harbor ; docker-compose start ; echo status: \$?", 120 )
         assert cmdOutput.last() == "status: 0": "Error starting harbor:" + cmdOutput.join("\n")
 
+        return true
     }
 
 
@@ -86,7 +108,7 @@ class HarborDeployment implements Deployment{
 
         ArrayList<ContainerSummary> containers = managerContainer.dockerClient.ps().content
 
-        containers = containers.findAll { it.image.startsWith("goharbor") || it.names.first() == managerContainer.containerName}
+        containers = containers.findAll { it.image.startsWith("goharbor") || it.names.first() == "/" + managerContainer.containerName}
 
         return containers
 

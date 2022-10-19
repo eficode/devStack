@@ -4,9 +4,12 @@ import com.eficode.atlassian.bitbucketInstanceManager.BitbucketInstanceManagerRe
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.BitbucketContainer
 import com.eficode.devstack.deployment.Deployment
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
-class BitbucketH2Deployment implements Deployment{
+class BitbucketH2Deployment implements Deployment {
 
+    Logger log = LoggerFactory.getLogger(this.class)
     String friendlyName = "Bitbucket H2 Deployment"
     BitbucketInstanceManagerRest bitbucketRest
     ArrayList<Container> containers = []
@@ -25,7 +28,7 @@ class BitbucketH2Deployment implements Deployment{
     }
 
     BitbucketContainer getBitbucketContainer() {
-        return containers.find {it instanceof BitbucketContainer} as BitbucketContainer
+        return containers.find { it instanceof BitbucketContainer } as BitbucketContainer
     }
 
     String getBitbucketContainerId() {
@@ -45,21 +48,21 @@ class BitbucketH2Deployment implements Deployment{
 
         log.info("Setting up deployment:" + friendlyName)
 
-        assert bitbucketLicense : "Error no Bitbucket License has been setup"
+        assert bitbucketLicense: "Error no Bitbucket License has been setup"
 
+
+        bitbucketContainer.containerDefaultNetworks = [this.deploymentNetworkName]
         bitbucketContainer.createContainer()
+
         log.info("\tCreated Bitbucket container:" + bitbucketContainer.id)
 
-        log.info("\tConfiguring container to join network:" + this.deploymentNetworkName)
-        bitbucketContainer.connectContainerToNetwork(bitbucketContainer.getNetwork(this.deploymentNetworkName))
 
-        assert bitbucketContainer.startContainer() : "Error starting Bitbucket container:" + bitbucketContainer.id
+        assert bitbucketContainer.startContainer(): "Error starting Bitbucket container:" + bitbucketContainer.id
         log.info("\tStarted Bitbucket container")
 
 
-
         log.info("\tSetting up local H2 database, License, Name etc")
-        assert bitbucketRest.setApplicationProperties(bitbucketLicense, "Bitbucket", bitbucketBaseUrl) : "Error setting up H2 database for Bitbucket"
+        assert bitbucketRest.setApplicationProperties(bitbucketLicense, "Bitbucket", bitbucketBaseUrl): "Error setting up H2 database for Bitbucket"
         log.info("\t\tApplication basics setup successfully")
 
 

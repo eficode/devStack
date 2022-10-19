@@ -93,8 +93,8 @@ class ContainerTest extends DevStackSpec {
 
 
         alpine1.removeNetwork(removedNetwork)
-        alpine1.getNetwork(removedNetwork.id) == null
-        alpine1.getNetwork(removedNetwork.name) == null
+        alpine1.getDockerNetwork(removedNetwork.id) == null
+        alpine1.getDockerNetwork(removedNetwork.name) == null
         log.info("\tRemoval of networks was tested successfully")
 
 
@@ -135,8 +135,8 @@ class ContainerTest extends DevStackSpec {
 
         then: "They should both be able to ping each other using containerName and ip"
 
-        alpine1.getContainerNetworks() == [spockNetwork]
-        alpine2.getContainerNetworks() == [spockNetwork]
+        alpine1.getConnectedContainerNetworks() == [spockNetwork]
+        alpine2.getConnectedContainerNetworks() == [spockNetwork]
         alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.containerName).any { it.contains("0% packet loss") }
         alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.containerName).any { it.contains("0% packet loss") }
         alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.ips.first()).any { it.contains("0% packet loss") }

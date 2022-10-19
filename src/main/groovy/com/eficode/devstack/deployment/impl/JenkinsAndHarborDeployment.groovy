@@ -4,6 +4,8 @@ import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.HarborManagerContainer
 import com.eficode.devstack.container.impl.JenkinsContainer
 import com.eficode.devstack.deployment.Deployment
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
@@ -12,33 +14,22 @@ import java.util.concurrent.Future
 
 class JenkinsAndHarborDeployment implements Deployment {
 
+    Logger log = LoggerFactory.getLogger(this.class)
     String friendlyName = "Jenkins and Harbor Deployment"
     String deploymentNetworkName = "jenkins_and_harbor"
     ArrayList<Deployment> subDeployments = []
 
     JenkinsAndHarborDeployment(String jenkinsBaseUrl, String harborBaseUrl, String dockerHost = "", String dockerCertPath = "") {
 
+
         subDeployments = [
                 new JenkinsDeployment(jenkinsBaseUrl, dockerHost, dockerCertPath),
                 new HarborDeployment(harborBaseUrl, "v2.6.1", "/tmp/", dockerHost, dockerCertPath)
         ]
 
-
     }
 
-    private class SetupDeploymentTask implements Callable<Boolean> {
 
-        Deployment deployment
-
-        SetupDeploymentTask(Deployment deployment) {
-            this.deployment = deployment
-        }
-
-        @Override
-        Boolean call() throws Exception {
-            this.deployment.setupDeployment()
-        }
-    }
 
     JenkinsDeployment getJenkinsDeployment() {
         return subDeployments.find { it instanceof JenkinsDeployment } as JenkinsDeployment
@@ -64,6 +55,19 @@ class JenkinsAndHarborDeployment implements Deployment {
         this.containers = containers
     }
 
+    private class SetupDeploymentTask implements Callable<Boolean> {
+
+        Deployment deployment
+
+        SetupDeploymentTask(Deployment deployment) {
+            this.deployment = deployment
+        }
+
+        @Override
+        Boolean call() throws Exception {
+            this.deployment.setupDeployment()
+        }
+    }
 
     boolean setupDeployment() {
 

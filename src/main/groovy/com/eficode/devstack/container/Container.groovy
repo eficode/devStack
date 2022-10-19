@@ -46,15 +46,14 @@ trait Container {
     abstract String containerMainPort
     abstract String containerImage
     abstract String containerImageTag
+    ArrayList<String> containerDefaultNetworks = ["bridge"]
     ArrayList<String> customEnvVar = []
-    //String containerNetworkName = "bridge"
     String defaultShell = "/bin/bash"
     String containerId
     ArrayList<Mount> mounts = []
 
 
     void prepareBindMount(String sourceAbs, String target, boolean readOnly = true) {
-        assert !isCreated(): "Bind mounts cant be prepared for already created container"
 
         Mount newMount = new Mount().tap { m ->
             m.source = sourceAbs
@@ -89,7 +88,6 @@ trait Container {
             c.hostname = self.containerName
             c.env = self.customEnvVar
 
-
         }
 
         return containerCreateRequest
@@ -102,7 +100,7 @@ trait Container {
      * @param entrypoint ex: ["tail", "-f", "/dev/null"]
      * @return container id
      */
-    String createContainer(ArrayList<String> cmd, ArrayList<String> entrypoint) {
+    String createContainer(ArrayList<String> cmd = [], ArrayList<String> entrypoint = []) {
 
         assert ping(): "Error connecting to docker engine"
 
@@ -119,14 +117,14 @@ trait Container {
         EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, self.containerName)
         assert response.content.warnings.isEmpty(): "Error when creating ${self.containerName} container:" + response.content.warnings.join(",")
 
+        ArrayList<Network> networks = containerDefaultNetworks.collect {createBridgeNetwork(it)}
+        assert setContainerNetworks(networks) : "Error setting container networks to:" + containerDefaultNetworks
+
         containerId = response.content.id
         return containerId
 
     }
 
-    String createContainer() {
-        return createContainer([], [])
-    }
 
     boolean runOnFirstStartup() {
         return true
@@ -248,10 +246,8 @@ trait Container {
 
         if (status == ContainerState.Status.Created) {
             return true //Created but not started
-        } else if (status == null) {
-            return true //Not even created
         } else {
-            return false
+            return status == null
         }
 
     }
@@ -469,28 +465,39 @@ trait Container {
      * @param networkNameOrId
      * @return Network if found, null if not
      */
-    Network getNetwork(String networkNameOrId) {
+    Network getDockerNetwork(String networkNameOrId) {
 
 
         Network network = networkClient.networks().content.find { it.name == networkNameOrId || it.id == networkNameOrId }
 
         return network
     }
+    /**
+     * Gets  networks based on name or id, note there might be multiple networks with the same name
+     * @param networkNameOrIds
+     * @return Networks if found, null if not
+     */
+    ArrayList<Network> getDockerNetworks(ArrayList<String>networkNameOrIds) {
+
+        ArrayList<Network> networks = networkClient.networks().content.findAll { it.name in networkNameOrIds || it.id in networkNameOrIds }
+
+        return networks
+    }
 
     boolean networkIsValid(Network network) {
-        return getNetwork(network.id) != null
+        return getDockerNetwork(network.id) != null
     }
 
     /**
      * Get the networks that this container is connected too
      * @return
      */
-    ArrayList<Network> getContainerNetworks() {
+    ArrayList<Network> getConnectedContainerNetworks() {
         Map<String, EndpointSettings> rawResponse = inspectContainer().networkSettings.networks
 
         ArrayList<Network> networks = []
         rawResponse.keySet().each { networkId ->
-            Network network = getNetwork(networkId)
+            Network network = getDockerNetwork(networkId)
 
             if (network != null) {
                 networks.add(network)
@@ -509,7 +516,7 @@ trait Container {
     ArrayList<Network> getContainerBridgeNetworks() {
 
 
-        return getContainerNetworks().findAll { it.driver == "bridge" }
+        return getConnectedContainerNetworks().findAll { it.driver == "bridge" }
 
     }
 
@@ -533,7 +540,7 @@ trait Container {
         log.trace("\tVerifying container was added to network")
 
 
-        if (containerNetworks.find { it.id == network.id } != null) {
+        if (connectedContainerNetworks.find { it.id == network.id } != null) {
             log.info("\tContainer was successfully added to network")
             return true
         }
@@ -550,7 +557,7 @@ trait Container {
         networkClient.disconnectNetwork(network.id, containerId)
         log.trace("\tVerifying container was disconnected from network")
 
-        if (!containerNetworks.find { it.id == network.id }) {
+        if (!connectedContainerNetworks.find { it.id == network.id }) {
             log.info("\tContainer was successfully disconnected from network")
             return true
         }
@@ -569,8 +576,7 @@ trait Container {
 
         log.info("Setting container networks")
         log.info("\tBeginning by disconnecting any networks it should no longer be connected to")
-        ArrayList networks = containerNetworks
-        containerNetworks.each { connectedNetwork ->
+        connectedContainerNetworks.each { connectedNetwork ->
 
             if (newNetworks.id.find { newNetworkId -> newNetworkId != connectedNetwork.id }) {
                 assert disconnectContainerFromNetwork(connectedNetwork): "Error disconnecting container (${containerName}) from network: ${connectedNetwork.name} (${connectedNetwork.id})"
@@ -580,7 +586,7 @@ trait Container {
         }
         log.info("\tFinished disconnecting container from unwanted networks, now connecting to new networks")
 
-        ArrayList<Network> connectedNetworks = containerNetworks
+        ArrayList<Network> connectedNetworks = connectedContainerNetworks
         newNetworks.each { wantedNetwork ->
 
             if (connectedNetworks.id.find { wantedNetwork.id }) {

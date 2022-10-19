@@ -4,10 +4,13 @@ import com.eficode.atlassian.jiraInstanceManager.JiraInstanceManagerRest
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.JsmContainer
 import com.eficode.devstack.deployment.Deployment
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 class JsmH2Deployment implements Deployment{
 
     String friendlyName = "JIRA H2 Deployment"
+    Logger log = LoggerFactory.getLogger(this.class)
     JiraInstanceManagerRest jiraRest
     ArrayList<Container> containers = []
     Map<String,String> appsToInstall = [:]
@@ -76,11 +79,9 @@ class JsmH2Deployment implements Deployment{
 
         assert jiraLicense : "Error no Jira License has been setup"
 
+        jsmContainer.containerDefaultNetworks = [deploymentNetworkName]
         jsmContainer.createContainer()
         log.info("\tCreated jsm container:" + jsmContainer.id)
-
-        log.info("\tConfiguring container to join network:" + this.deploymentNetworkName)
-        jsmContainer.connectContainerToNetwork(jsmContainer.getNetwork(this.deploymentNetworkName))
 
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")

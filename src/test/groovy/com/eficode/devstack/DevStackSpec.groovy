@@ -1,12 +1,13 @@
 package com.eficode.devstack
 
-
+import com.eficode.devstack.container.impl.AlpineContainer
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
+import de.gesellix.docker.remote.api.Network
 import org.apache.commons.io.FileUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,6 +30,9 @@ class DevStackSpec extends Specification {
     ArrayList<Integer> cleanupContainerPorts
 
     @Shared
+    ArrayList<String> cleanupDockerNetworkNames = []
+
+    @Shared
     boolean disableCleanup = false
 
 
@@ -42,6 +46,7 @@ class DevStackSpec extends Specification {
         dockerClient = resolveDockerClient()
         if (!disableCleanup) {
             cleanupContainers()
+            cleanupNetworks()
         }
     }
 
@@ -50,11 +55,22 @@ class DevStackSpec extends Specification {
     def cleanup() {
         if (!disableCleanup) {
             cleanupContainers()
+            cleanupNetworks()
         }
 
     }
 
 
+    boolean cleanupNetworks() {
+
+        AlpineContainer alp = new AlpineContainer(dockerRemoteHost, dockerCertPath)
+        cleanupDockerNetworkNames.each {networkName ->
+            Network network = alp.getDockerNetwork(networkName)
+            log.info("\tRemoving network ${network.name} " + network?.id[0..7])
+            assert alp.removeNetwork(network) : "Error removing network:" + network.toString()
+        }
+
+    }
 
 
     boolean cleanupContainers() {

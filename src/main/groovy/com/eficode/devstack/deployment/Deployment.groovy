@@ -1,35 +1,20 @@
 package com.eficode.devstack.deployment
 
 import com.eficode.devstack.container.Container
+import de.gesellix.docker.remote.api.core.Frame
+import de.gesellix.docker.remote.api.core.StreamCallback
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 trait Deployment {
 
-    static Logger log = LoggerFactory.getLogger(this.class)
+    abstract Logger log // = LoggerFactory.getLogger(self.class)
     abstract ArrayList<Container> containers
     abstract String friendlyName
     String deploymentNetworkName = "bridge"
 
 
     abstract boolean setupDeployment()
-
-    /*
-    void setupSecureDockerConnection(String host, String certPath) {
-
-        log.info("Setting up secure connection to docker engine")
-        assert getContainers() != null && !getContainers().empty: "Deployment has no containers defined"
-
-
-        getContainers().each {
-            assert it.setupSecureRemoteConnection(host, certPath): "Error setting up secure connection to docker engine"
-            log.info("\tSecure connection setup for container:" + getFriendlyName())
-        }
-        log.info("\tSuccessfully setup secure connections to docker engine")
-    }
-
-     */
-
 
     boolean startDeployment() {
 
