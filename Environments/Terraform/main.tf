@@ -288,9 +288,9 @@ resource "aws_lb" "load-balancer" {
 
   name               = "${var.tags.useCase}-${var.tags.owner}-lb"
   internal           = false
-  load_balancer_type = "network"
+  load_balancer_type = "application"
   subnets            = [aws_subnet.base-stack-public-subnet.id]
-
+  enable_deletion_protection = false
 
 }
 

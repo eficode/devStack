@@ -1,6 +1,6 @@
 package com.eficode.devstack.container
 
-import de.gesellix.docker.client.DockerClientImpl
+import com.eficode.devstack.util.DockerClientDS
 import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.client.network.ManageNetworkClient
 import de.gesellix.docker.engine.DockerClientConfig
@@ -11,6 +11,7 @@ import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.EndpointSettings
+import de.gesellix.docker.remote.api.ExecConfig
 import de.gesellix.docker.remote.api.HostConfig
 import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
@@ -40,7 +41,7 @@ import java.util.regex.Pattern
 trait Container {
 
     Logger log = LoggerFactory.getLogger(self.class)
-    DockerClientImpl dockerClient = new DockerClientImpl()
+    DockerClientDS dockerClient = new DockerClientDS()
     ManageNetworkClient networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
     abstract String containerName
     abstract String containerMainPort
@@ -96,7 +97,7 @@ trait Container {
 
     /**
      * Create container and override default docker cmd and entrypoint
-     * @param cmd:
+     * @param cmd :
      * @param entrypoint ex: ["tail", "-f", "/dev/null"]
      * @return container id
      */
@@ -117,8 +118,8 @@ trait Container {
         EngineResponseContent response = dockerClient.createContainer(containerCreateRequest, self.containerName)
         assert response.content.warnings.isEmpty(): "Error when creating ${self.containerName} container:" + response.content.warnings.join(",")
 
-        ArrayList<Network> networks = containerDefaultNetworks.collect {createBridgeNetwork(it)}
-        assert setContainerNetworks(networks) : "Error setting container networks to:" + containerDefaultNetworks
+        ArrayList<Network> networks = containerDefaultNetworks.collect { createBridgeNetwork(it) }
+        assert setContainerNetworks(networks): "Error setting container networks to:" + containerDefaultNetworks
 
         containerId = response.content.id
         return containerId
@@ -143,7 +144,7 @@ trait Container {
         dockerEnv.setCertPath(certPath)
         dockerEnv.setTlsVerify("1")
         dockerConfig.apply(dockerEnv)
-        dockerClient = new DockerClientImpl(dockerConfig)
+        dockerClient = new DockerClientDS(dockerConfig)
         networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
 
 
@@ -477,7 +478,7 @@ trait Container {
      * @param networkNameOrIds
      * @return Networks if found, null if not
      */
-    ArrayList<Network> getDockerNetworks(ArrayList<String>networkNameOrIds) {
+    ArrayList<Network> getDockerNetworks(ArrayList<String> networkNameOrIds) {
 
         ArrayList<Network> networks = networkClient.networks().content.findAll { it.name in networkNameOrIds || it.id in networkNameOrIds }
 
@@ -650,23 +651,45 @@ trait Container {
     }
 
 
-    ArrayList<String> runBashCommandInContainer(String command, long timeoutS = 10) {
+    //Format is one of: `user`, `user:group`, `uid`, or `uid:gid`
+    ArrayList<String> runCommandInContainer(String containerId, ArrayList<String> commands, long timeoutS = 10, String userGroup = null, String workingDir = null) {
 
         log.info("Executing bash command in container:")
         log.info("\tContainer:" + self.containerName + " (${self.containerId})")
-        log.info("\tCommand:" + command)
+        log.info("\tCommand:" + commands)
         log.info("\tTimeout:" + timeoutS)
-        if (log.isTraceEnabled()) {
-            log.trace("\tDocker ping:" + dockerClient.ping().content as String)
-        }
-
 
         long cmdStart = System.currentTimeMillis()
-        ContainerCallback callBack = new ContainerCallback()
-        EngineResponse<IdResponse> response = dockerClient.exec(self.containerId, [self.defaultShell, "-c", command], callBack, Duration.ofSeconds(timeoutS))
 
-        log.trace("\tCommand finished after:" + ((System.currentTimeMillis()-cmdStart)/1000).round() + "s" )
+        ExecConfig execConfig = new ExecConfig()
+        execConfig.with { ex ->
+            ex.attachStdin = false
+            ex.attachStdout = true
+            ex.attachStderr = true
+            ex.detachKeys = null
+            ex.tty = false
+            ex.env = null
+            ex.cmd = commands
+            ex.privileged = null
+            ex.user = userGroup ?: null
+            ex.workingDir = workingDir ?: null
+        }
+
+        ContainerCallback callBack = new ContainerCallback()
+        dockerClient.exec(containerId, commands, callBack, Duration.ofSeconds(timeoutS), execConfig)
+
+        log.trace("\tCommand finished after:" + ((System.currentTimeMillis() - cmdStart) / 1000).round() + "s")
+
         return callBack.output
+
+    }
+
+
+    ArrayList<String> runBashCommandInContainer(String command, long timeoutS = 10, String user = null) {
+
+        return runCommandInContainer(self.containerId, [self.defaultShell, "-c", command], timeoutS, user)
+
+
     }
 
 

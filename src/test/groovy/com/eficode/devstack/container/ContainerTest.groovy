@@ -29,6 +29,28 @@ class ContainerTest extends DevStackSpec {
     }
 
 
+    def testRunBashCommand(String dockerHost, String certPath) {
+
+        setup:
+        AlpineContainer alpine1 = new AlpineContainer(dockerHost, certPath)
+        alpine1.containerName = "spock-alpine1"
+        alpine1.createSleepyContainer()
+        alpine1.startContainer()
+
+        expect: "Test that the user parameter of runBashCommandInContainer works"
+        alpine1.runBashCommandInContainer("whoami") == ["root"]
+        alpine1.runBashCommandInContainer("adduser -D  nisse && su nisse -c whoami") == ["nisse"]
+        alpine1.runBashCommandInContainer("whoami", 10, "nisse") == ["nisse"]
+
+
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
+
+    }
+
+
     def testNetworking(String dockerHost, String certPath) {
 
         setup:

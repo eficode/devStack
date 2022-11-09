@@ -3,7 +3,7 @@ package com.eficode.devstack.deployment.impl
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.HarborManagerContainer
 import com.eficode.devstack.deployment.Deployment
-import de.gesellix.docker.client.DockerClientImpl
+import com.eficode.devstack.util.DockerClientDS
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.ContainerWaitExitError
@@ -46,7 +46,7 @@ class HarborDeployment implements Deployment {
             log.info("\tWaiting for containers to start")
             harborContainers.collectEntries { [it.names.first(), it.state] }.each { log.debug("\t\t" + it) }
 
-            assert start + (2 * 60000) < System.currentTimeMillis(): "Timed out waiting for harbor containers to start"
+            assert start + (4 * 60000) > System.currentTimeMillis(): "Timed out waiting for harbor containers to start, waited:" + ((System.currentTimeMillis() - start)/1000).round().toString()
             sleep(1500)
         }
 
@@ -83,6 +83,38 @@ class HarborDeployment implements Deployment {
 
         log.info("Stopping and removing ${this.class}")
 
+
+
+
+        assert managerContainer.stopAndRemoveContainer()
+        ArrayList<ContainerSummary> harbContainers = harborContainers
+        if (harbContainers) {
+            //There are still harbor containers around
+
+            DockerClientDS dockerClient = managerContainer.dockerClient
+            harbContainers.each { container ->
+
+                log.debug("\t\tKilling and removing:" + container.names)
+                try {
+                    dockerClient.kill(container.id)
+                } catch (ignored){}
+
+                dockerClient.rm(container.id)
+
+
+
+            }
+
+        }
+
+
+
+
+
+
+        return harborContainers.isEmpty()
+
+        /*
         if (!managerContainer.created) {
             //Manager container does not exist
             ArrayList<ContainerSummary> harbContainers = harborContainers
@@ -90,7 +122,7 @@ class HarborDeployment implements Deployment {
                 //There are still harbor containers around
                 log.info("\tThe manager container does not exist, removing harbor containers manually")
 
-                DockerClientImpl dockerClient = managerContainer.dockerClient
+                DockerClientDS dockerClient = managerContainer.dockerClient
                 harbContainers.each { container ->
 
                     log.debug("\t\tKilling and removing:" + container.names)
@@ -126,6 +158,8 @@ class HarborDeployment implements Deployment {
         }
 
         return managerContainer.stopAndRemoveContainer()
+
+         */
 
 
     }
