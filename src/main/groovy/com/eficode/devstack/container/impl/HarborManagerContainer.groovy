@@ -6,6 +6,7 @@ import org.apache.groovy.json.internal.LazyMap
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Map.Entry
 
 class HarborManagerContainer extends DoodContainer {
 
@@ -78,21 +79,106 @@ class HarborManagerContainer extends DoodContainer {
 
 
         cmdOutput = runBashCommandInContainer("""
-            mkdir -p "${installPath}" && \\ 
+            mkdir -p "${installPath}" && \\
             cd "${installPath}" && \\
             wget https://github.com/goharbor/harbor/releases/download/$harborVersion/harbor-online-installer-${harborVersion}.tgz &&  \\
             tar xzvf harbor-online-installer-${harborVersion}.tgz &&  \\
             cd harbor &&  \\
             ls -la &&  \\
             echo status: \$?
-        """, 100)
+        """, 200)
         assert cmdOutput.last() == "status: 0": "Error downloading and extracting harbor:" + cmdOutput.join("\n")
         log.info("\tFinished downloading and extracting Harbor")
 
 
-        /**
-         * Fetch template config file, update it and put it back in the manager container
-         */
+        assert modifyInstallYml() : "Error updating Harbor install config file: harbor.yml"
+
+        log.info("\tStarting  installation")
+        cmdOutput = runBashCommandInContainer(installPath + "/harbor/install.sh ; echo status: \$?", 400 )
+        assert cmdOutput.last().contains("status: 0"): "Error installing harbor:" + cmdOutput.join("\n")
+
+
+        assert modifyDockerCompose() : "Error modifying Harbors docker-compose file"
+
+        cmdOutput = runBashCommandInContainer("cd " + installPath + "/harbor && docker-compose up -d && echo status: \$?", 80)
+        assert cmdOutput.last().contains("status: 0"): "Error applying the modified docker-compose file:" + cmdOutput.join("\n")
+
+        return true
+
+    }
+
+
+    /**
+     * Modifies the default docker-compose file so that all pods connect to the correct network (containerDefaultNetworks)
+     * @return
+     */
+    boolean modifyDockerCompose() {
+
+
+
+
+        log.info("\tCustomizing Harbor docker compose")
+        Path tmpDir= Files.createTempDirectory("harbor-compose")
+        String tmpDirPath = tmpDir.toFile().absolutePath
+
+
+
+        ArrayList<File> files = copyFilesFromContainer("${installPath}/harbor/docker-compose.yml", tmpDirPath + "/")
+
+        assert files.size() == 1 && files.first().name == "docker-compose.yml" : "Error, could not find docker-compose.yml file"
+        File yamlFile = files.first()
+        log.debug("\t\tRetried docker compose file from container:" + yamlFile.absolutePath)
+
+
+        LazyMap originalYml = new YamlSlurper().parse(yamlFile) as LazyMap
+        LazyMap modifiedYml = new YamlSlurper().parse(yamlFile) as LazyMap
+
+
+
+        modifiedYml.services.each {Entry<String, LazyMap> service  ->
+            log.debug("\t"*3 + "Customising Docker Service:" + service.key)
+
+            service.value.networks = containerDefaultNetworks
+            log.trace("\t"*4 + "Set networks to:" + service.value.networks)
+            log.trace("\t"*4 + "Used to be:" + originalYml.services.get(service.key).networks)
+
+        }
+
+        log.debug("\t"*3 + "Customising Docker Network")
+        modifiedYml.remove("networks")
+
+        Map<String, LazyMap> networks = [:]
+        containerDefaultNetworks.each {networkName ->
+            networks.put(networkName as String,["external": true, "name":networkName] as LazyMap )
+        }
+        modifiedYml.put("networks", networks)
+        //modifiedYml.put("networks", ["default": [external: [name: networkName]]])
+
+        log.trace("\t"*4 + "Set networks to:" + modifiedYml.networks)
+        log.trace("\t"*4 + "Used to be:" + originalYml.networks)
+
+
+
+        YamlBuilder yamlBuilder = new YamlBuilder()
+        yamlBuilder(modifiedYml)
+
+
+        yamlFile.write(yamlBuilder.toString())
+
+        assert copyFileToContainer(yamlFile.absolutePath, installPath + "/harbor/") : "Error copying updated YAML file to container"
+        tmpDir.deleteDir()
+
+        log.info("\tFinished customizing installation configuration")
+
+        return true
+
+    }
+
+    /**
+     * Fetch template config file, update it and put it back in the manager container
+     */
+    boolean modifyInstallYml() {
+
 
         Path tmpDir= Files.createTempDirectory("harbor-conf")
         String tmpDirPath = tmpDir.toFile().absolutePath
@@ -104,11 +190,19 @@ class HarborManagerContainer extends DoodContainer {
         File yamlFile = files.first()
 
 
-        LazyMap yaml = new YamlSlurper().parse(yamlFile) as LazyMap
-        LazyMap modifiedYaml = modifyHarborYml(yaml)
+        LazyMap originalYml = new YamlSlurper().parse(yamlFile) as LazyMap
+
+
+        LazyMap modifiedYml = originalYml
+        modifiedYml.hostname = host
+        modifiedYml.http.port = port
+        modifiedYml.remove("https")
+        modifiedYml.data_volume = dataPath
+
+
 
         YamlBuilder yamlBuilder = new YamlBuilder()
-        yamlBuilder(modifiedYaml)
+        yamlBuilder(modifiedYml)
 
         File modifiedYamlFile = new File(tmpDirPath + "/harbor.yml")
         modifiedYamlFile.createNewFile()
@@ -119,27 +213,7 @@ class HarborManagerContainer extends DoodContainer {
 
         log.info("\tFinished customizing installation configuration")
 
-        log.info("\tStarting  installation")
-        cmdOutput = runBashCommandInContainer(installPath + "/harbor/install.sh ; echo status: \$?", 400 )
-        assert cmdOutput.last().contains("status: 0"): "Error installing harbor:" + cmdOutput.join("\n")
-
-
-
         return true
-
-    }
-
-    LazyMap modifyHarborYml(LazyMap originalYml) {
-
-        LazyMap modifiedYml = originalYml
-
-        modifiedYml.hostname = host
-        modifiedYml.http.port = port
-        modifiedYml.remove("https")
-        modifiedYml.data_volume = dataPath
-
-
-        return modifiedYml
 
     }
 }

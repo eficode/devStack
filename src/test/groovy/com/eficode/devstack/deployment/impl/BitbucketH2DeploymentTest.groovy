@@ -1,7 +1,7 @@
 package com.eficode.devstack.deployment.impl
 
 import com.eficode.devstack.DevStackSpec
-import de.gesellix.docker.client.DockerClientImpl
+import com.eficode.devstack.util.DockerClientDS
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import kong.unirest.Unirest

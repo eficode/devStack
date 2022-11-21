@@ -1,9 +1,9 @@
-package com.eficode.devstack.deployment.impl;
+package com.eficode.devstack.deployment.impl
 
 import com.eficode.devstack.DevStackSpec
 import org.slf4j.LoggerFactory
 
-public class JenkinsAndHarborDeploymentTest extends DevStackSpec {
+class JenkinsAndHarborDeploymentTest extends DevStackSpec {
 
     def setupSpec() {
 
@@ -37,10 +37,22 @@ public class JenkinsAndHarborDeploymentTest extends DevStackSpec {
     def "test setupDeployment"(String jenkinsBaseUrl, String harborBaseUrl, String dockerHost, String certPath) {
 
         setup:
+        String networkName = "custom-network-" + System.currentTimeMillis().toString()[-5..-1]
+        cleanupDockerNetworkNames.add(networkName)
+
+
         JenkinsAndHarborDeployment jh = new JenkinsAndHarborDeployment(jenkinsBaseUrl, harborBaseUrl, dockerHost, certPath)
+        jh.deploymentNetworkName = networkName
 
         expect:
         jh.setupDeployment()
+
+        when: "Collecting all networks used by harbor and jenkins containers"
+        ArrayList<String> harborNetworks = jh.harborDeployment.harborContainers.networkSettings.networks.collect {it.keySet()}.flatten().unique()
+        ArrayList<String> jenkinsNetworks = jh.jenkinsContainer.connectedContainerNetworks.name.unique()
+
+        then: "They should all be in the same networks"
+        harborNetworks == jenkinsNetworks
 
         where:
         jenkinsBaseUrl             | harborBaseUrl             | dockerHost       | certPath

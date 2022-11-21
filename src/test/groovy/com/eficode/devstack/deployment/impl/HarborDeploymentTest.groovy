@@ -49,16 +49,24 @@ class HarborDeploymentTest extends DevStackSpec {
 
         hd.setupDeployment()
 
+        //hd.managerContainer.runAfterDockerSetup()
+
 
         then:
         Unirest.get(harborBaseUrl).basicAuth("admin", "Harbor12345").asEmpty().status == 200
-        hd.getContainers().every { it.status() == ContainerState.Status.Running }
+        hd.harborContainers.id.contains(hd.managerContainer.inspectContainer().id) //Make sure harborContainers returns manager container as well
+        hd.harborContainers.every { it.state in [ContainerState.Status.Running.value, ContainerState.Status.Restarting.value] }
+        hd.harborContainers.every {it.networkSettings.networks.keySet().toList() == [hd.deploymentNetworkName]}
+        hd.harborContainers.collect {it.names.first()}.every {containerName ->
+            String hostname = containerName[1..-1]
+            hd.managerContainer.runBashCommandInContainer("ping ${hostname} -c 1 && echo Status: \$?", 5).last().contains("Status: 0")
+        }
 
         when: "Stopping the deployment"
         hd.stopDeployment()
 
         then: "All containers should remain but have status Exited"
-        hd.getContainers().every { it.status() == ContainerState.Status.Exited }
+        hd.harborContainers.every { it.state == ContainerState.Status.Exited.value }
 
         when: "Staring the deployment"
         ArrayList<String> containerIdsBeforeStart = hd.getHarborContainers().id
@@ -79,7 +87,7 @@ class HarborDeploymentTest extends DevStackSpec {
         where:
         dockerHost       | certPath       | harborBaseUrl             | harborVersion | harborBaseDir
         ""               | ""             | "http://localhost"        | "v2.6.0"      | "/tmp"
-        dockerRemoteHost | dockerCertPath | "http://harbor.domain.se" | "v2.6.0"      | "/tmp"
+        //dockerRemoteHost | dockerCertPath | "http://harbor.domain.se" | "v2.6.0"      | "/tmp"
 
     }
 }

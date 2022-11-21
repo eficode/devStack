@@ -1,12 +1,13 @@
 package com.eficode.devstack
 
-
-import de.gesellix.docker.client.DockerClientImpl
+import com.eficode.devstack.container.impl.AlpineContainer
+import com.eficode.devstack.util.DockerClientDS
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
+import de.gesellix.docker.remote.api.Network
 import org.apache.commons.io.FileUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -21,12 +22,15 @@ class DevStackSpec extends Specification {
     String dockerCertPath = "resources/dockerCert"
 
     @Shared
-    DockerClientImpl dockerClient
+    DockerClientDS dockerClient
 
     @Shared
     ArrayList<String> cleanupContainerNames
     @Shared
     ArrayList<Integer> cleanupContainerPorts
+
+    @Shared
+    ArrayList<String> cleanupDockerNetworkNames = []
 
     @Shared
     boolean disableCleanup = false
@@ -42,6 +46,7 @@ class DevStackSpec extends Specification {
         dockerClient = resolveDockerClient()
         if (!disableCleanup) {
             cleanupContainers()
+            cleanupNetworks()
         }
     }
 
@@ -50,17 +55,28 @@ class DevStackSpec extends Specification {
     def cleanup() {
         if (!disableCleanup) {
             cleanupContainers()
+            cleanupNetworks()
         }
 
     }
 
 
+    boolean cleanupNetworks() {
+
+        AlpineContainer alp = new AlpineContainer(dockerRemoteHost, dockerCertPath)
+        cleanupDockerNetworkNames.each {networkName ->
+            Network network = alp.getDockerNetwork(networkName)
+            log.info("\tRemoving network ${network.name} " + network?.id[0..7])
+            assert alp.removeNetwork(network) : "Error removing network:" + network.toString()
+        }
+
+    }
 
 
     boolean cleanupContainers() {
 
 
-        DockerClientImpl dockerClient = resolveDockerClient()
+        DockerClientDS dockerClient = resolveDockerClient()
         log.info("Cleaning up containers")
 
         ArrayList<ContainerInspectResponse> containers = dockerClient.ps().content.collect {dockerClient.inspectContainer(it.id as String).content}
@@ -97,7 +113,7 @@ class DevStackSpec extends Specification {
     }
 
 
-    DockerClientImpl resolveDockerClient() {
+    DockerClientDS resolveDockerClient() {
 
         log.info("Resolving Docker client")
 
@@ -134,7 +150,7 @@ class DevStackSpec extends Specification {
 
         if (!dockerHost) {
             log.info("\tNo remote host configured, returning local docker connection")
-            return new DockerClientImpl()
+            return new DockerClientDS()
         }
 
 
@@ -146,7 +162,7 @@ class DevStackSpec extends Specification {
         if (!pemFiles.empty && ["ca.pem", "cert.pem", "key.pem"].every { expectedFile -> pemFiles.any { actualFile -> actualFile.name == expectedFile } }) {
             log.info("\tFound Docker certs, returning Secure remote Docker connection")
             try {
-                DockerClientImpl dockerClient = setupSecureRemoteConnection(dockerRemoteHost, dockerCertPath)
+                DockerClientDS dockerClient = setupSecureRemoteConnection(dockerRemoteHost, dockerCertPath)
                 assert dockerClient.ping().content as String == "OK": "Error pinging remote Docker engine"
                 return dockerClient
             } catch (ex) {
@@ -167,7 +183,7 @@ class DevStackSpec extends Specification {
      * @param host ex: "https://docker.domain.se:2376"
      * @param certPath folder containing ca.pem, cert.pem, key.pem
      */
-    static DockerClientImpl setupSecureRemoteConnection(String host, String certPath) {
+    static DockerClientDS setupSecureRemoteConnection(String host, String certPath) {
 
         DockerClientConfig dockerConfig = new DockerClientConfig(host)
         DockerEnv dockerEnv = new DockerEnv(host)
@@ -175,7 +191,7 @@ class DevStackSpec extends Specification {
         dockerEnv.setTlsVerify("1")
         dockerConfig.apply(dockerEnv)
 
-        return new DockerClientImpl(dockerConfig)
+        return new DockerClientDS(dockerConfig)
 
     }
 

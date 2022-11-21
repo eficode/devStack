@@ -29,6 +29,28 @@ class ContainerTest extends DevStackSpec {
     }
 
 
+    def testRunBashCommand(String dockerHost, String certPath) {
+
+        setup:
+        AlpineContainer alpine1 = new AlpineContainer(dockerHost, certPath)
+        alpine1.containerName = "spock-alpine1"
+        alpine1.createSleepyContainer()
+        alpine1.startContainer()
+
+        expect: "Test that the user parameter of runBashCommandInContainer works"
+        alpine1.runBashCommandInContainer("whoami") == ["root"]
+        alpine1.runBashCommandInContainer("adduser -D  nisse && su nisse -c whoami") == ["nisse"]
+        alpine1.runBashCommandInContainer("whoami", 10, "nisse") == ["nisse"]
+
+
+        where:
+        dockerHost       | certPath
+        ""               | ""
+        dockerRemoteHost | dockerCertPath
+
+    }
+
+
     def testNetworking(String dockerHost, String certPath) {
 
         setup:
@@ -93,8 +115,8 @@ class ContainerTest extends DevStackSpec {
 
 
         alpine1.removeNetwork(removedNetwork)
-        alpine1.getNetwork(removedNetwork.id) == null
-        alpine1.getNetwork(removedNetwork.name) == null
+        alpine1.getDockerNetwork(removedNetwork.id) == null
+        alpine1.getDockerNetwork(removedNetwork.name) == null
         log.info("\tRemoval of networks was tested successfully")
 
 
@@ -135,8 +157,8 @@ class ContainerTest extends DevStackSpec {
 
         then: "They should both be able to ping each other using containerName and ip"
 
-        alpine1.getContainerNetworks() == [spockNetwork]
-        alpine2.getContainerNetworks() == [spockNetwork]
+        alpine1.getConnectedContainerNetworks() == [spockNetwork]
+        alpine2.getConnectedContainerNetworks() == [spockNetwork]
         alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.containerName).any { it.contains("0% packet loss") }
         alpine2.runBashCommandInContainer("ping -c 1 " + alpine1.containerName).any { it.contains("0% packet loss") }
         alpine1.runBashCommandInContainer("ping -c 1 " + alpine2.ips.first()).any { it.contains("0% packet loss") }

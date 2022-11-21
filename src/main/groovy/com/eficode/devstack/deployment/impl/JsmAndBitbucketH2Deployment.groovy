@@ -6,6 +6,8 @@ import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.BitbucketContainer
 import com.eficode.devstack.container.impl.JsmContainer
 import com.eficode.devstack.deployment.Deployment
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
@@ -14,9 +16,11 @@ import java.util.concurrent.Future
 
 class JsmAndBitbucketH2Deployment implements Deployment {
 
+
     String friendlyName = "JIRA and Bitbucket H2 Deployment"
     String containerNetworkName = "jsm_and_bitbucket"
     ArrayList<Deployment> subDeployments = []
+    Logger log = LoggerFactory.getLogger(this.class)
 
     Map<String, String> jiraAppsToInstall = [:]
     String jiraLicense

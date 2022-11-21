@@ -6,7 +6,7 @@
 
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
-    <version>2.0.0-SNAPSHOT-groovy-${groovy.major.version}</version>
+    <version>2.0.1-SNAPSHOT-groovy-${groovy.major.version}</version>
     <packaging>jar</packaging>
 
     <name>DevStack - Parent pom</name>
@@ -157,9 +157,23 @@
                             <!-- final name of the shaded jar will be ${project.artifactId}-standalone -->
                             <shadedClassifierName>standalone</shadedClassifierName>
 
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+
                             <artifactSet>
                                 <excludes>
-                                    <exclude>org.codehaus.groovy:groovy</exclude>
+                                    <exclude>org.codehaus.groovy:*</exclude>
+                                    <!--exclude>org.codehaus.groovy:groovy</exclude>
+                                    <exclude>org.codehaus.groovy:groovy-astbuilder</exclude-->
+
                                     <exclude>com.google.code.gson:gson</exclude>
                                     <exclude>org.apache.httpcomponents</exclude>
                                     <exclude>commons-*</exclude>
@@ -167,12 +181,12 @@
                                 </excludes>
 
                             </artifactSet>
-                            <!--relocations>
+                            <relocations>
                                 <relocation>
-                                    <pattern>kong.unirest.</pattern>
-                                    <shadedPattern>com.eficode.shaded.kong.unirest.</shadedPattern>
+                                    <pattern>com.eficode.atlassian</pattern>
+                                    <shadedPattern>com.eficode.shaded.atlassian</shadedPattern>
                                 </relocation>
-                            </relocations-->
+                            </relocations>
 
                             <!-- NOTE: Any dependencies of the project will not show up in the standalone pom.
                             This means that if those dependencies are not properly relocated and there is a class-loading conflict,
