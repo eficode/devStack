@@ -177,6 +177,7 @@
                                     <exclude>com.google.code.gson:gson</exclude>
                                     <exclude>org.apache.httpcomponents</exclude>
                                     <exclude>commons-*</exclude>
+                                    <exclude>com.kohlschutter.junixsocket:junixsocket-core</exclude>
 
                                 </excludes>
 
@@ -193,6 +194,7 @@
                             user would not be able to figure out where the conflicting dependency is. -->
                             <createDependencyReducedPom>true</createDependencyReducedPom>
 
+                            <createSourcesJar>true</createSourcesJar>
                         </configuration>
                     </execution>
                 </executions>

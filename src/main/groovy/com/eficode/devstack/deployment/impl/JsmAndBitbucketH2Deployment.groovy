@@ -135,7 +135,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
         threadPool.shutdown()
 
 
-        while (!jsmFuture.done && !bitbucketFuture.done) {
+        while (!jsmFuture.done || !bitbucketFuture.done) {
             log.info("Waiting for deployments to finish")
             log.info("\tJSM Finished:" + jsmFuture.done)
             log.info("\tBitbucket Finished:" + bitbucketFuture.done)
