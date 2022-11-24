@@ -168,7 +168,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
             log.info("\tInstalling JiraShortcuts app") //Needed for setting up applink to bitbucket
             assert installJiraApps(
                     [
-                            "https://github.com/eficode/JiraShortcuts/raw/packages/repository/com/eficode/atlassian/JiraShortcuts/2.0-SNAPSHOT-groovy-3.0/JiraShortcuts-2.0-SNAPSHOT-groovy-3.0.jar": ""
+                            "https://github.com/eficode/JiraShortcuts/raw/packages/repository/com/eficode/atlassian/jira/jiraShortcuts/2.0.1-SNAPSHOT-groovy-3.0/jiraShortcuts-2.0.1-SNAPSHOT-groovy-3.0.jar":""
                     ]
             ) : "Error installing JiraShortcuts JIRA apps"
             log.info("\t\tFinished installing JiraShortcuts JIRA Apps")
