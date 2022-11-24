@@ -17,7 +17,7 @@ import com.atlassian.applinks.api.ApplicationLink
 import com.atlassian.applinks.api.application.bitbucket.BitbucketApplicationType
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 
-@WithPlugin("com.eficode.atlassian.jiraShortcuts")
+@WithPlugin("com.eficode.atlassian.jira.jiraShortcuts")
 import com.eficode.atlassian.jira.jiraShortcuts.JiraShortcuts
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
