@@ -39,8 +39,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.eficode.atlassian</groupId>
-            <artifactId>JiraShortcuts</artifactId>
+            <groupId>com.eficode.atlassian.jira</groupId>
+            <artifactId>jiraShortcuts</artifactId>
             <version>${jiraShortcuts.version}</version>
         </dependency>
 
@@ -259,7 +259,7 @@
         <groovy.major.version>3.0</groovy.major.version>
         <groovy.version>3.0.11</groovy.version>
         <spock-core.version>2.2-groovy-3.0</spock-core.version>
-        <jiraShortcuts.version>2.0-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
+        <jiraShortcuts.version>2.0.1-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
         <bitbucketinstancemanager.version>0.0.3-SNAPSHOT-groovy-3.0</bitbucketinstancemanager.version>
     </properties>
 
