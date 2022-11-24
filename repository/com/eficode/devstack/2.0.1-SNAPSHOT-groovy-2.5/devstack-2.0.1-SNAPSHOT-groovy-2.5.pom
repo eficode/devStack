@@ -36,6 +36,7 @@
                   <exclude>com.google.code.gson:gson</exclude>
                   <exclude>org.apache.httpcomponents</exclude>
                   <exclude>commons-*</exclude>
+                  <exclude>com.kohlschutter.junixsocket:junixsocket-core</exclude>
                 </excludes>
               </artifactSet>
               <relocations>
@@ -45,6 +46,7 @@
                 </relocation>
               </relocations>
               <createDependencyReducedPom>true</createDependencyReducedPom>
+              <createSourcesJar>true</createSourcesJar>
             </configuration>
           </execution>
         </executions>
@@ -167,7 +169,7 @@
     <bitbucketinstancemanager.version>0.0.3-SNAPSHOT-groovy-3.0</bitbucketinstancemanager.version>
     <maven.compiler.source>11</maven.compiler.source>
     <spock-core.version>2.2-groovy-3.0</spock-core.version>
-    <jiraShortcuts.version>2.0-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
+    <jiraShortcuts.version>2.0.1-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
     <groovy.major.version>3.0</groovy.major.version>
     <groovy.version>3.0.11</groovy.version>
   </properties>
