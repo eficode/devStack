@@ -19,7 +19,7 @@ class DevStackSpec extends Specification {
     @Shared
     String dockerRemoteHost = "https://docker.domain.se:2376"
     @Shared
-    String dockerCertPath = "resources/dockerCert"
+    String dockerCertPath = "~/.docker/"
 
     @Shared
     DockerClientDS dockerClient
@@ -133,7 +133,13 @@ class DevStackSpec extends Specification {
             if (specificationContext?.currentIteration?.dataVariables?.certPath) {
                 certPath = specificationContext.currentIteration.dataVariables.certPath
                 log.debug("\tThe current spec provided cert path:" + certPath)
+                if (certPath.startsWith("~")) {
+                    certPath = certPath[1..-1]
+                    certPath = System.getProperty("user.home") + certPath
+                    log.trace("\t\tResolved to:" + certPath)
+                }
                 certDir = new File(certPath)
+
 
                 assert certDir.isDirectory(): "The given cert path is not a directory:" + certPath
             }
