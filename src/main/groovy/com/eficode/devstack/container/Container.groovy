@@ -603,6 +603,28 @@ trait Container {
 
 
     /**
+     * Replaces text content of a file in the container
+     * @param content The new content that should be in the file
+     * @param filePath Path to the file in the container
+     * @param verify If true will read back content of file and verify, might five false negatives in case of special chars
+     * @return
+     */
+    boolean replaceFileInContainer(String content, String filePath, boolean verify = false) {
+        ArrayList<String> out = runBashCommandInContainer("cat > $filePath <<- 'EOF'\n" + content + "\nEOF")
+
+        assert out.isEmpty() : "Unexpected output when replacing file $filePath: " + out.join("\n")
+
+        if (verify) {
+            ArrayList<String>rawOut = runBashCommandInContainer("cat " + filePath)
+            String readOut = rawOut.join()
+            assert readOut.trim() == content.trim() : "Error when verifying that the file $filePath was replaced"
+            return true
+        }
+
+        return true
+    }
+
+    /**
      * Copy files from a container
      * @param containerPath can be a file or a path (ending in /)
      * @param destinationPath

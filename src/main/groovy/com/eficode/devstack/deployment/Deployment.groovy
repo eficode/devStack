@@ -19,9 +19,10 @@ trait Deployment {
 
     boolean startDeployment() {
 
-        log.info("Starting deployment: " + this.friendlyName)
+        log.info("Starting deployment: " + this.getFriendlyName())
 
-        this.containers.each { container ->
+
+        this.getContainers().each { container ->
             log.debug("\tStarting:" + container.containerName)
             assert container.startContainer(): "Error starting container:" + container.containerId
         }

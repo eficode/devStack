@@ -39,8 +39,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.eficode.atlassian</groupId>
-            <artifactId>JiraShortcuts</artifactId>
+            <groupId>com.eficode.atlassian.jira</groupId>
+            <artifactId>jiraShortcuts</artifactId>
             <version>${jiraShortcuts.version}</version>
         </dependency>
 
@@ -80,7 +80,7 @@
         <dependency>
             <groupId>com.eficode.atlassian</groupId>
             <artifactId>jirainstancemanager</artifactId>
-            <version>1.1.0-SNAPSHOT</version>
+            <version>1.3.0-SNAPSHOT-groovy-${groovy.major.version}</version>
         </dependency>
 
 
@@ -143,7 +143,7 @@
                 <!-- Configured in pluginManagement instead of plugins, because we do not want a shaded parent POM -->
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.0</version>
+                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -177,6 +177,7 @@
                                     <exclude>com.google.code.gson:gson</exclude>
                                     <exclude>org.apache.httpcomponents</exclude>
                                     <exclude>commons-*</exclude>
+                                    <exclude>com.kohlschutter.junixsocket:junixsocket-core</exclude>
 
                                 </excludes>
 
@@ -193,6 +194,7 @@
                             user would not be able to figure out where the conflicting dependency is. -->
                             <createDependencyReducedPom>true</createDependencyReducedPom>
 
+                            <createSourcesJar>true</createSourcesJar>
                         </configuration>
                     </execution>
                 </executions>
@@ -257,7 +259,7 @@
         <groovy.major.version>3.0</groovy.major.version>
         <groovy.version>3.0.11</groovy.version>
         <spock-core.version>2.2-groovy-3.0</spock-core.version>
-        <jiraShortcuts.version>2.0-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
+        <jiraShortcuts.version>2.0.1-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
         <bitbucketinstancemanager.version>0.0.3-SNAPSHOT-groovy-3.0</bitbucketinstancemanager.version>
     </properties>
 
