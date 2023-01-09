@@ -9,7 +9,7 @@ class JenkinsAndHarborDeploymentTest extends DevStackSpec {
 
 
         dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "resources/dockerCert"
+        dockerCertPath = "~/.docker/"
 
 
         log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)

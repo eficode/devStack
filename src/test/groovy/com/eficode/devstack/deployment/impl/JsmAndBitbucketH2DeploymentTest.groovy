@@ -4,6 +4,13 @@ import com.eficode.devstack.DevStackSpec
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 
+/**
+ *
+ * Prerequisites
+ *  DNS names jira.domain.se jira2.domain.se bitbucket.domain.se bitbucket2.domain.se must point to dockerRemoteHost
+ *
+ */
+
 class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
 
 
@@ -21,7 +28,7 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
         assert bitbucketLicenseFile.text.length() > 10: "Bitbucket license file does not appear valid"
 
         dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "resources/dockerCert"
+        dockerCertPath = "~/.docker/"
 
 
         log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
@@ -40,7 +47,7 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
         JsmAndBitbucketH2Deployment jsmAndBb = new JsmAndBitbucketH2Deployment(jiraBaseUrl, bitbucketBaseUrl, dockerHost, dockerCertPath)
 
         jsmAndBb.jiraAppsToInstall = [
-                "https://marketplace.atlassian.com/download/apps/6820/version/1005740": new File("resources/jira/licenses/scriptrunnerForJira.license").text
+                "https://marketplace.atlassian.com/download/apps/6820/version/1006540": new File("resources/jira/licenses/scriptrunnerForJira.license").text
         ]
 
         jsmAndBb.bitbucketLicense = bitbucketLicenseFile
