@@ -1,7 +1,7 @@
 /target/
 /.idea/vcs.xml
-/Environments/Terraform/.terraform/
-/Environments/Terraform/.terraform.lock.hcl
-/Environments/Terraform/.terraform.tfstate.lock.info
-/Environments/Terraform/terraform.tfstate
-/Environments/Terraform/terraform.tfstate.backup
+/Environments/AWS/.terraform/
+/Environments/AWS/.terraform.lock.hcl
+/Environments/AWS/.terraform.tfstate.lock.info
+/Environments/AWS/terraform.tfstate
+/Environments/AWS/terraform.tfstate.backup

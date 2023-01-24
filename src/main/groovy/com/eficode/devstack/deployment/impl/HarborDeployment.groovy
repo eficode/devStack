@@ -31,6 +31,21 @@ class HarborDeployment implements Deployment {
         this.containers.find { it instanceof HarborManagerContainer } as HarborManagerContainer
     }
 
+
+    /**
+     * Returns the IP of the container listening on the private port 8080, ie the main frontend container IP
+     * @return
+     */
+    String getFrontendContainerIp() {
+
+        ContainerSummary harborNginxC = harborContainers.find {it.ports.privatePort.contains(8080)}
+
+        String harborNginxIp = harborNginxC?.networkSettings?.networks?.values()?.ipAddress?.first()
+
+        return harborNginxIp
+
+    }
+
     @Override
     boolean setupDeployment() {
 

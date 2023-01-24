@@ -25,9 +25,9 @@ variable "aws_credentials" {
 variable "dockerServerCert" {
   type = map(string)
   default = {
-    "tlscacert" = "../../resources/dockerCert/ca.pem"
-    "tlscert" = "../../resources/dockerCert/server-cert.pem"
-    "tlskey" = "../../resources/dockerCert/server-key.pem"
+    "tlscacert" = "~/.docker/ca.pem"
+    "tlscert"   = "~/.docker/server-cert.pem"
+    "tlskey"    = "~/.docker/server-key.pem"
   }
   
 }

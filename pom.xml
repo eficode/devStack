@@ -6,7 +6,7 @@
 
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
-    <version>2.1.0-SNAPSHOT-groovy-${revision}</version>
+    <version>2.1.1-SNAPSHOT-groovy-${revision}</version>
     <packaging>jar</packaging>
 
     <name>DevStack - Parent pom</name>
@@ -176,7 +176,9 @@
 
                                     <exclude>com.google.code.gson:gson</exclude>
                                     <exclude>org.apache.httpcomponents</exclude>
-                                    <exclude>commons-*</exclude>
+
+                                    <!--exclude>commons-*</exclude--> <!--Seems to break JenkinsAndHarborDeployment.groovy:103, needs org/apache/commons/io/FileUtils-->
+
                                     <exclude>com.kohlschutter.junixsocket:junixsocket-core</exclude>
 
                                 </excludes>

@@ -30,7 +30,7 @@ class NginxFileServer implements Deployment {
             server_name  localhost;
             client_max_body_size 2048M;
         
-            location ~ "/([0-9a-zA-Z-.]*)\$" {
+            location / {
                 alias     /usr/share/nginx/html/\$1;
                 client_body_temp_path  /tmp/;
                 autoindex on;

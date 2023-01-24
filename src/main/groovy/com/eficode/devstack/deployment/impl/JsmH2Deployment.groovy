@@ -7,6 +7,18 @@ import com.eficode.devstack.deployment.Deployment
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+/**
+ * Sets up a JSM deployment,
+ * creates a local H2 database,
+ * configures JSM license and admin account (admin/admin)
+ * installs optional marketplace apps and their licenses.
+ *
+ *
+ * Before running setupDeployment() make sure to setJiraLicense() and optionally populate setAppsToInstall (ex: [https:marketplace....:AAbbv1223cc...])
+ *
+ * Container name will be derived from the supplied jiraBaseUrl, but can be overridden before creation with: jsmH2Deployment.jsmContainer.containerName = "Something"
+ */
+
 class JsmH2Deployment implements Deployment{
 
     String friendlyName = "JIRA H2 Deployment"
@@ -18,6 +30,12 @@ class JsmH2Deployment implements Deployment{
 
     String jiraBaseUrl
 
+    /**
+     * Sets up a JSM Deployment
+     * @param jiraBaseUrl The full base url where JIRA should be reached (ex: http://jira.domain.se:8080)
+     * @param dockerHost An optional docker host, when not using local Docker Engine (ex: https://docker.domain.se:2376)
+     * @param dockerCertPath folder containing ca.pem, and the client cert: cert.pem, key.pem (ex: ~/.docker/")
+     */
     JsmH2Deployment(String jiraBaseUrl, String dockerHost = "", String dockerCertPath = "") {
         this.jiraBaseUrl = jiraBaseUrl
         this.jiraRest = new JiraInstanceManagerRest(jiraBaseUrl)
