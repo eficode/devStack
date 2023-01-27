@@ -77,6 +77,35 @@ class ImageBuilder extends DoodContainer {
 
     }
 
+
+    ImageSummary buildBb(String bbVersion, boolean force = false){
+
+        String imageName = "atlassian/bitbucket"
+        String archType = dockerClient.engineArch
+        String imageTag = "$imageName:$bbVersion-$archType"
+
+        //Check first if an image with the expected tag already exists
+        if (!force) {
+            ArrayList<ImageSummary> existingImages = dockerClient.images().content
+            ImageSummary existingImage =  existingImages.find {it.repoTags == [imageTag]}
+            if (existingImage) {
+                return existingImage
+            }
+        }
+
+        putBuilderCommand("apt install git -y && echo status:\$?", "status:0")
+        putBuilderCommand("git clone --recurse-submodule https://bitbucket.org/atlassian-docker/docker-atlassian-bitbucket-server/ && echo status:\$?", "status:0")
+        putBuilderCommand("cd docker-atlassian-bitbucket-server && docker build --tag $imageTag --build-arg BITBUCKET_VERSION=$bbVersion . && echo status:\$?", "status:0")
+        putBuilderCommand("pkill tail", "")
+
+        assert build() : "Error building the image."
+
+        ArrayList<ImageSummary> images = dockerClient.images().content
+        ImageSummary newImage =  images.find {it.repoTags == [imageTag]}
+        return newImage
+
+    }
+
     /**
      * Takes care of setting up a Dood container and running the commands submitted with putBuilderCommand
      * The putBuilderCommand-commands should take care of killing the tail process with ex: pkill tail
