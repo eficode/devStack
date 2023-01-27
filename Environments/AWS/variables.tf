@@ -2,7 +2,7 @@ variable "tags" {
   description = "Tags to set on resources."
   type        = map(string)
   default = {
-    owner : "Lantz"
+    owner : "User"
     testing : "True"
     okToRemove : "True"
     useCase : "DevStack"
@@ -49,6 +49,12 @@ variable "trusted-external-ips" {
 variable "ec2-username" {
   type    = string
   default = "ubuntu"
+}
+
+variable "ec2-instance-type" {
+  type = string
+  default = "t4g.xlarge" //t4g.xlarge (ARM)
+  //default = "t3.xlarge" //"t3.xlarge" (x64)
 }
 
 variable "ingress_rules_from_trusted" {
