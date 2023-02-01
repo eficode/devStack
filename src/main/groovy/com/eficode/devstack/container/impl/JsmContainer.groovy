@@ -66,7 +66,7 @@ class JsmContainer implements Container {
             ImageSummary newImage = imageBuilder.buildJsm(jsmVersion)
             log.debug("\tFinished building custom image:" + newImage.repoTags.join(","))
 
-            image = newImage.id
+            image = newImage.repoTags.first()
         }
 
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->

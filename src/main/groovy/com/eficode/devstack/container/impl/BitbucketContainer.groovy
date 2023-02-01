@@ -62,7 +62,7 @@ class BitbucketContainer implements Container {
             ImageSummary newImage = imageBuilder.buildBb(bbVersion)
             log.debug("\tFinished building custom image:" + newImage.repoTags.join(","))
 
-            image = newImage.id
+            image = newImage.repoTags.first()
         }
 
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->

@@ -14,8 +14,7 @@ class ImageBuilder extends DoodContainer {
 
     LinkedHashMap<String, String> builderCommands = [:]
     Map<String, ArrayList<String>>builderOut = [:]
-    long cmdTimeoutS = 200 //Will timeout individual container commands after this many seconds
-    long totalTimeoutS = 10 * 60
+    long cmdTimeoutS = 800 //Will timeout individual container commands after this many seconds
 
 
     ImageBuilder(String dockerHost, String dockerCertPath) {
@@ -54,6 +53,8 @@ class ImageBuilder extends DoodContainer {
         String artifactName = "atlassian-servicedesk"
         String archType = dockerClient.engineArch
         String imageTag = "$imageName:$jsmVersion-$archType"
+        containerName = imageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-imageBuilder".length())
+        containerName += "-imageBuilder"
 
         //Check first if an image with the expected tag already exists
         if (!force) {
@@ -73,17 +74,27 @@ class ImageBuilder extends DoodContainer {
 
         ArrayList<ImageSummary> images = dockerClient.images().content
         ImageSummary newImage =  images.find {it.repoTags == [imageTag]}
+        log.debug("\tFinished building image:" + imageTag + ", ID:" + newImage.id[7..17])
         return newImage
 
     }
 
 
+    /**
+     * Will check out Atlassian docker repo and build a Bitbucket image matching docker engine CPU arch.
+     * The new image will be named atlassian/bitbucket and tagged $version-$cpuArch
+     *  ex: atlassian/bitbucket:5.3.1-x86_64
+     * @param bbVersion Version of bitbucket to build
+     * @param force If true, will always create and potentially overwrite existing image. If false, will return a pre-existing image if available
+     * @return
+     */
     ImageSummary buildBb(String bbVersion, boolean force = false){
 
         String imageName = "atlassian/bitbucket"
         String archType = dockerClient.engineArch
         String imageTag = "$imageName:$bbVersion-$archType"
-
+        containerName = imageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-imageBuilder".length())
+        containerName += "-imageBuilder"
         //Check first if an image with the expected tag already exists
         if (!force) {
             ArrayList<ImageSummary> existingImages = dockerClient.images().content
@@ -102,6 +113,7 @@ class ImageBuilder extends DoodContainer {
 
         ArrayList<ImageSummary> images = dockerClient.images().content
         ImageSummary newImage =  images.find {it.repoTags == [imageTag]}
+        log.debug("\tFinished building image:" + imageTag + ", ID:" + newImage.id[7..17])
         return newImage
 
     }
@@ -116,19 +128,10 @@ class ImageBuilder extends DoodContainer {
         log.info("Creating and starting Image Builder container")
 
         long start = System.currentTimeSeconds()
-        long end = start + totalTimeoutS
+        log.info("\tStarting container, waiting for it to finish")
         createContainer([],["/bin/bash" ,"-c" ,"trap \"exit\" SIGINT SIGTERM && tail -F /var/log/*"])
         startContainer()
-        log.info("\tContainer started, waiting for it to finish")
-        while (running && (System.currentTimeSeconds() < end)) {
-            sleep(2000)
-            log.info("\t\tStill waiting for container to finish, waited ${System.currentTimeSeconds() - start}s")
-        }
-
-        if (running) {
-            stopAndRemoveContainer()
-            throw new TimeoutException("Timed out waiting for build container to finish")
-        }
+        log.info("\t\tContainer finish after ${System.currentTimeSeconds() - start}s")
 
         stopAndRemoveContainer()
         return true

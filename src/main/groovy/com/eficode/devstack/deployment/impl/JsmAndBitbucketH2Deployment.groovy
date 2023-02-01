@@ -122,8 +122,8 @@ class JsmAndBitbucketH2Deployment implements Deployment {
         assert jiraLicense: "Error no Jira License has been setup"
         assert bitbucketLicense: "Error no Bitbucket License has been setup"
 
-        jsmH2Deployment.setJiraLicense(new File(jiraLicense))
-        bitbucketH2Deployment.setBitbucketLicence(new File(bitbucketLicense))
+        jsmH2Deployment.setJiraLicense(jiraLicense)
+        bitbucketH2Deployment.setBitbucketLicence(bitbucketLicense)
 
         jsmH2Deployment.deploymentNetworkName = this.containerNetworkName
         bitbucketH2Deployment.deploymentNetworkName = this.containerNetworkName
@@ -197,9 +197,15 @@ class JsmAndBitbucketH2Deployment implements Deployment {
             log.trace("\t"* 3 + "Script returned logs:")
             appLinkResult.log.each {log.trace("\t"*4 + it)}
 
-            assert appLinkResult.log.any {it.contains("Created link:Bitbucket")}  : "Error creating application link from JIRA to bitbucket"
+
+
+
+            ArrayList<String>jiraLog = jsmContainer.runBashCommandInContainer("tail -n 500 log/atlassian-jira.log")
+            assert jiraLog.any {it.contains("Created link:Bitbucket")}  : "Error creating application link from JIRA to bitbucket"
             assert appLinkResult.success : "Error creating application link from JIRA to bitbucket"
             log.info("\tFinished setting up application between JIRA and Bitbucket successfully")
+        }else {
+            log.warn("\tScriptRunner was not installed, NOT setting up application link between JIRA and Bitbucket")
         }
 
 

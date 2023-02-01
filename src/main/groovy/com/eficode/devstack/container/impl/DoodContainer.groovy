@@ -29,11 +29,11 @@ class DoodContainer implements Container {
     @Override
     boolean runOnFirstStartup() {
 
-        ArrayList<String> cmdOutput = runBashCommandInContainer("apt-get update && apt upgrade -y && apt-get install -y locales htop nano inetutils-ping net-tools && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8; echo status: \$?", 260)
+        ArrayList<String> cmdOutput = runBashCommandInContainer("apt-get update && apt upgrade -y && apt-get install -y locales htop nano inetutils-ping net-tools && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8; echo status: \$?", 260, "root")
         assert cmdOutput.last() == "status: 0": "Error installing basic dependencies:" + cmdOutput.join("\n")
 
 
-        cmdOutput = runBashCommandInContainer("apt install -y ca-certificates curl gnupg lsb-release; echo status: \$?", 100)
+        cmdOutput = runBashCommandInContainer("apt install -y ca-certificates curl gnupg lsb-release; echo status: \$?", 100, "root")
         assert cmdOutput.last() == "status: 0": "Error installing docker dependencies:" + cmdOutput.join("\n")
 
 
@@ -45,13 +45,13 @@ class DoodContainer implements Container {
             \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null\\
             ; echo status: \$?
         """
-        cmdOutput = runBashCommandInContainer(setupRepoCmd, 10)
+        cmdOutput = runBashCommandInContainer(setupRepoCmd, 10, "root")
         assert cmdOutput.last() == "status: 0": "Error adding docker repo:" + cmdOutput.join("\n")
 
-        cmdOutput = runBashCommandInContainer("apt-get update && apt install -y docker-ce-cli docker-compose ; echo status: \$?", 120)
+        cmdOutput = runBashCommandInContainer("apt-get update && apt install -y docker-ce-cli docker-compose ; echo status: \$?", 120, "root")
         assert cmdOutput.last() == "status: 0": "Error installing docker client:" + cmdOutput.join("\n")
 
-        cmdOutput = runBashCommandInContainer("docker info | grep ID:")
+        cmdOutput = runBashCommandInContainer("docker info | grep ID:", 30, "root")
         assert  cmdOutput.any {it.contains(dockerClient.info().content.getID() )} : "Error, child container can not communicate with parent docker node"
 
         return runAfterDockerSetup()

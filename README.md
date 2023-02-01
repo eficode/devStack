@@ -27,6 +27,19 @@ This class will help you spin up JIRA and Bitbucket containers in the same docke
 * DevStack is not intended for production use ever, it should only be used for short-lived test environments with nothing to loose.
 * Not intended for existing environments, presumes DevStack was used to setup up the environment. 
 
+# Main building blocks and concepts
+
+## Containers vs Deployments
+
+The two main building blocks of DevStack are Containers and Deployments. A container is essentially just a representation of a normal Docker container, ie a pretty much a Docker Image that has been started with some added basic network and env-vars added. This is where Deployment then takes over and installs licenses, sets up database, admin accounts etc as many steps as possible to give you an environment ready for use.
+
+## SubDeployments
+SubDeployments are simply a collection of deployments used by a more complex deployment. [JenkinsAndHarborDeployment.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Fdeployment%2Fimpl%2FJenkinsAndHarborDeployment.groovy) for example uses the Jenkins and Harbor deployments as SubDeployments. 
+
+## Utils
+
+These are classes mainly intended to be used by Container/Deployment-classes when massaging of the containers are needed for example. Currently [ImageBuilder.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FImageBuilder.groovy) dynamically builds Atlassian images for non x86 architectures on the fly.
+
 # Setup Docker Engine in AWS
 
 DevStack defaults to trying to connect to a local Docker engine, but a terraform project is supplied for setting up a remote EC2 with docker engine. The docker engine will be configured to only accept HTTPS from your IP.  
@@ -60,6 +73,19 @@ DevStack defaults to trying to connect to a local Docker engine, but a terraform
 
 6. Go to Environments/Terraform and run terraform apply
     * Note the "Hosts-record" output, this needs to be added to your /etc/hosts
+    * This host record should be considered a suggestion as it depends on things such as the base URLs you select for your deployments
+7. Presuming everything was successful you should now be able to SSH to the new EC2 server and run commands such as "docker ps"
+   * If you have setup you hosts file according to the previous step, you should be able to ssh to docker.domain.se
+8. Update your code, the Deployment and Container classes should all accept a docker host and cert path parameter
+```groovy
+String dockerRemoteHost = "https://docker.domain.se:2376"
+String dockerCertPath = "~/.docker/"
+
+
+//JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl) //If using a local docker engine
+JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl, dockerRemoteHost, dockerCertPath) //If using a remote docker Engine
+
+```
 
 
 ## Using DevStack in your project
