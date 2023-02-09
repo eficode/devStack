@@ -8,6 +8,7 @@ import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.remote.api.ExecConfig
 import de.gesellix.docker.remote.api.ExecStartConfig
 import de.gesellix.docker.remote.api.IdResponse
+import de.gesellix.docker.remote.api.SystemInfo
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
 import org.slf4j.Logger
@@ -38,6 +39,25 @@ class DockerClientDS extends DockerClientImpl {
        super(dockerClientConfig, proxy)
     }
 
+    String getHost() {
+        return this.getEnv().dockerHost
+    }
+    String getCertPath() {
+        return this.getEnv().certPath
+    }
+
+
+    /**
+     * Returns the CPU architecture of the Docker engine
+     * @return ex: x86_64, aarch64 (arm)
+     */
+    String getEngineArch() {
+
+        SystemInfo info = info().content
+
+        return info.architecture
+
+    }
 
 
     EngineResponseContent<IdResponse> exec(String containerId, List<String> command, StreamCallback<Frame> callback, Duration timeout, ExecConfig execConfig) {

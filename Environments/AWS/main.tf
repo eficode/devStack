@@ -60,6 +60,13 @@ data "aws_availability_zones" "available" {
 }
 
 
+data "aws_ec2_instance_type" "instance_type" {
+
+  instance_type = var.ec2-instance-type
+}
+
+
+
 //Get the latest AmazoneLinux2 AMI
 data "aws_ami" "latest_amazon_linux_2" {
   most_recent = true
@@ -73,7 +80,7 @@ data "aws_ami" "latest_amazon_linux_2" {
   }
   filter {
     name   = "architecture"
-    values = ["x86_64"]
+    values = data.aws_ec2_instance_type.instance_type.supported_architectures
   }
   owners = ["amazon"]
 }
@@ -84,7 +91,7 @@ data "aws_ami" "ubuntuAMI" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-*-server-*"]
   }
 
   filter {
@@ -92,6 +99,10 @@ data "aws_ami" "ubuntuAMI" {
     values = ["hvm"]
   }
 
+  filter {
+    name = "architecture"
+    values = data.aws_ec2_instance_type.instance_type.supported_architectures
+  }
   owners = ["099720109477"] # Canonical
 }
 
@@ -259,7 +270,7 @@ resource "aws_instance" "ec2-node" {
   }
 
   ami                    = data.aws_ami.ubuntuAMI.id
-  instance_type          = "t3.xlarge"
+  instance_type          = var.ec2-instance-type
   subnet_id              = aws_subnet.base-stack-private-subnet.id
   key_name               = aws_key_pair.ec2-ssh-key.key_name
   vpc_security_group_ids = [aws_security_group.private-subnet-sg.id]
@@ -273,9 +284,9 @@ resource "aws_instance" "ec2-node" {
 
   user_data = templatefile("ubuntu_user_data.sh", {
     awsRegion : data.aws_region.current.name
-    tlscacert : file(var.dockerServerCert.tlscacert)
-    tlscert : file(var.dockerServerCert.tlscert)
-    tlskey : file(var.dockerServerCert.tlskey)
+    tlscacert : file(pathexpand(var.dockerServerCert.tlscacert))
+    tlscert : file(pathexpand(var.dockerServerCert.tlscert))
+    tlskey : file(pathexpand(var.dockerServerCert.tlskey))
     }
   )
 
@@ -288,7 +299,7 @@ resource "aws_lb" "load-balancer" {
 
   name               = "${var.tags.useCase}-${var.tags.owner}-lb"
   internal           = false
-  load_balancer_type = "application"
+  load_balancer_type = "network"
   subnets            = [aws_subnet.base-stack-public-subnet.id]
   enable_deletion_protection = false
 

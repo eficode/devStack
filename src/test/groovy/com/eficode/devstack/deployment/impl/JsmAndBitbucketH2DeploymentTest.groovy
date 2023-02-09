@@ -24,8 +24,8 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
     def setupSpec() {
 
 
-        assert jsmLicenseFile.text.length() > 10: "Jira license file does not appear valid"
-        assert bitbucketLicenseFile.text.length() > 10: "Bitbucket license file does not appear valid"
+        assert jsmLicenseFile.text.length() > 30: "Jira license file does not appear valid"
+        assert bitbucketLicenseFile.text.length() > 30: "Bitbucket license file does not appear valid"
 
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "~/.docker/"
@@ -44,18 +44,14 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
 
         setup:
 
-        JsmAndBitbucketH2Deployment jsmAndBb = new JsmAndBitbucketH2Deployment(jiraBaseUrl, bitbucketBaseUrl, dockerHost, dockerCertPath)
+        JsmAndBitbucketH2Deployment jsmAndBb = new JsmAndBitbucketH2Deployment(jiraBaseUrl, bitbucketBaseUrl, dockerHost, certPath)
 
         jsmAndBb.jiraAppsToInstall = [
                 "https://marketplace.atlassian.com/download/apps/6820/version/1006540": new File("resources/jira/licenses/scriptrunnerForJira.license").text
         ]
 
-        jsmAndBb.bitbucketLicense = bitbucketLicenseFile
-        jsmAndBb.jiraLicense = jsmLicenseFile
-
-        //TODO Update Bitbucket instance manager to support 8.5, appears to fail setting database
-        jsmAndBb.bitbucketContainer.containerImageTag = "8.4.1"
-
+        jsmAndBb.bitbucketLicense = bitbucketLicenseFile.text
+        jsmAndBb.jiraLicense = jsmLicenseFile.text
 
         expect:
         jsmAndBb.setupDeployment()

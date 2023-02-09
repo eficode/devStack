@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
+import java.util.regex.Matcher
+
 class DevStackSpec extends Specification {
 
     @Shared
@@ -64,10 +66,10 @@ class DevStackSpec extends Specification {
     boolean cleanupNetworks() {
 
         AlpineContainer alp = new AlpineContainer(dockerRemoteHost, dockerCertPath)
-        cleanupDockerNetworkNames.each {networkName ->
+        cleanupDockerNetworkNames.each { networkName ->
             Network network = alp.getDockerNetwork(networkName)
             log.info("\tRemoving network ${network.name} " + network?.id[0..7])
-            assert alp.removeNetwork(network) : "Error removing network:" + network.toString()
+            assert alp.removeNetwork(network): "Error removing network:" + network.toString()
         }
 
     }
@@ -79,7 +81,7 @@ class DevStackSpec extends Specification {
         DockerClientDS dockerClient = resolveDockerClient()
         log.info("Cleaning up containers")
 
-        ArrayList<ContainerInspectResponse> containers = dockerClient.ps().content.collect {dockerClient.inspectContainer(it.id as String).content}
+        ArrayList<ContainerInspectResponse> containers = dockerClient.ps().content.collect { dockerClient.inspectContainer(it.id as String).content }
 
         log.debug("\tThere are currenlty ${containers.size()} containers")
         log.debug("\tWill remove any container named:" + cleanupContainerNames?.join(","))
@@ -87,11 +89,9 @@ class DevStackSpec extends Specification {
         containers.each { container ->
 
 
+            boolean nameCollision = cleanupContainerNames.any { container.name == "/" + it }
 
-
-            boolean nameCollision = cleanupContainerNames.any { container.name == "/" + it}
-
-            boolean portCollision  = cleanupContainerPorts.any {unwantedPort ->container?.hostConfig?.portBindings?.values()?.hostPort?.flatten()?.contains(unwantedPort.toString()) }
+            boolean portCollision = cleanupContainerPorts.any { unwantedPort -> container?.hostConfig?.portBindings?.values()?.hostPort?.flatten()?.contains(unwantedPort.toString()) }
 
 
             if (nameCollision || portCollision) {
@@ -99,7 +99,7 @@ class DevStackSpec extends Specification {
                 log.debug("\t\tContainer has matching name:" + nameCollision + " (${container.name})")
                 log.debug("\t\tContainer has matching port:" + portCollision + " (${container?.hostConfig?.portBindings?.values()?.hostPort?.flatten()?.join(",")})")
 
-                if (container.state.status in [ContainerState.Status.Running, ContainerState.Status.Restarting] ) {
+                if (container.state.status in [ContainerState.Status.Running, ContainerState.Status.Restarting]) {
                     dockerClient.kill(container.id)
                 }
                 dockerClient.rm(container.id)
@@ -198,6 +198,46 @@ class DevStackSpec extends Specification {
         dockerConfig.apply(dockerEnv)
 
         return new DockerClientDS(dockerConfig)
+
+    }
+
+
+    /**
+     * Replaces the value of a variable in a script text
+     *  What ever comes after the "=" is replaces so make sure to include quotation-marks for strings for example
+     *
+     * @param src Original script text
+     * @param variableName name of variable
+     * @param newValue The new value
+     * @return The new script text
+     */
+    static String replaceVariableValue(String src, String variableName, String newValue) {
+
+
+        Matcher match = src =~ /(?m)^[A-Z].*? $variableName ?= ?(.*)$/
+
+        if (match.size() != 1) {
+            log.error("No matches found for variable:" + variableName)
+            return null
+        }
+
+        String origRow = match[0][0]
+        String origValue = match[0][1]
+
+        String newRow = origRow.replace(origValue, newValue)
+
+        String newText = src.replaceFirst("(?m)^$origRow\$", newRow)
+
+
+        log.trace("-" * 10 + "START ORIGINAL INPUT" + "-" * 10)
+        src.eachLine { log.trace("\t" + it) }
+        log.trace("-" * 10 + "END ORIGINAL INPUT" + "-" * 10)
+
+        log.trace("-" * 10 + "START NEW OUTPUT" + "-" * 10)
+        newText.eachLine { log.trace("\t" + it) }
+        log.trace("-" * 10 + "END NEW OUTPUT" + "-" * 10)
+
+        return newText
 
     }
 

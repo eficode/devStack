@@ -38,9 +38,6 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
         BitbucketH2Deployment  bitbucketDep = new BitbucketH2Deployment(baseUrl, dockerHost, certPath)
         bitbucketDep.setBitbucketLicence(bitbucketLicenseFile)
 
-        //TODO Update Bitbucket instance manager to support 8.5, appears to fail setting database
-        bitbucketDep.bitbucketContainer.containerImageTag = "8.4.1"
-
         String port = bitbucketDep.bitbucketContainer.extractPortFromUrl(baseUrl)
 
 
