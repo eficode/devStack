@@ -10,14 +10,20 @@ import com.eficode.devstack.deployment.impl.JsmH2Deployment
 String dockerRemoteHost = "https://docker.domain.se:2376"
 String dockerCertPath = "~/.docker/"
 
+//Input JSM licence
+String jsmLicense = """LICENSE GOES HERE"""
 
-JsmH2Deployment jsmDep = new JsmH2Deployment("http://localhost:8080") //If using a local docker engine
+String jiraBaseUrl = "http://jira.localhost:8080"
+JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl) //If using a local docker engine
 //JsmH2Deployment jsmDep = new JsmH2Deployment("http://jira.domain.se:8080", dockerRemoteHost, dockerCertPath) //If using a remote docker Engine
 
 File projectRoot = new File("../").canonicalFile
 
 //Set JSM license that should be used
-jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
+jsmDep.setJiraLicense(jsmLicense)
+
+//Set a container network
+jsmDep.setDeploymentNetworkName("jsm")
 
 //Optional settings
 //jsmDep.jsmContainer.containerImageTag = "5.5.1" //Set docker image (and JSM) version

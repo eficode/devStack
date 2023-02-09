@@ -10,6 +10,15 @@ class ExamplesTest extends DevStackSpec{
     File examplesDir = new File("examples").canonicalFile
     @Shared
     File resourcesDir = new File("resources").canonicalFile
+    @Shared
+    File projectRoot = new File(".").canonicalFile
+    @Shared
+    File jsmLicenseFile = new File(projectRoot.path + "/resources/jira/licenses/jsm.license")
+    @Shared
+    File bitbucketLicenseFile = new File(projectRoot.path + "/resources/bitbucket/licenses/bitbucketLicense")
+    @Shared
+    File srLicenseFile = new File(projectRoot.path + "/resources/jira/licenses/scriptrunnerForJira.license")
+
 
     def setupSpec() {
         //dockerRemoteHost = "https://docker.domain.se:2376"
@@ -27,8 +36,12 @@ class ExamplesTest extends DevStackSpec{
 
         assert examplesDir.exists()
         assert resourcesDir.exists()
+        assert jsmLicenseFile.canRead() && jsmLicenseFile.exists()
+        assert srLicenseFile.canRead() && srLicenseFile.exists()
+        assert bitbucketLicenseFile.canRead() && bitbucketLicenseFile.exists()
 
     }
+
 
     def "Test Basic JSM setup example"() {
 
@@ -40,7 +53,7 @@ class ExamplesTest extends DevStackSpec{
         GroovyContainer groovyContainer = new GroovyContainer(dockerRemoteHost, dockerCertPath)
 
         groovyContainer.prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock") //Mount docker socket from host
-        groovyContainer.containerDefaultNetworks = ["bridge"] // Make sure groovy container is on the same network as other containers
+        groovyContainer.containerDefaultNetworks = ["jsm"] // Make sure groovy container is on the same network as other containers
         groovyContainer.setGroovyVersion("3.0.14")
         groovyContainer.stopAndRemoveContainer()
         groovyContainer.createSleepyContainer()
@@ -55,14 +68,13 @@ class ExamplesTest extends DevStackSpec{
 
         when:
         String scriptText = scriptFile.text
-        scriptText = scriptText.replace("http://localhost:8080", "http://jira.local:8080")
+        scriptText = replaceVariableValue(scriptText, "jiraBaseUrl", "\"http://jira.local:8080\"")
+        scriptText = replaceVariableValue(scriptText, "jsmLicense", "\"\"\"${jsmLicenseFile.text}\"\"\"")
         ArrayList<String> scriptOutput = groovyContainer.runScriptInContainer(scriptText,"-Dorg.slf4j.simpleLogger.defaultLogLevel=trace", "",600, "root" )
 
         then:
         !scriptOutput.any {it.contains("unable to resolve class")}
-        scriptOutput.any {it.contains("Bitbucket deployment finished successfully:true")}
-        scriptOutput.any {it.contains("JSM deployment finished successfully:true")}
-        scriptOutput.any {it.contains("Finished setting up application link")}
+        scriptOutput.any {it.contains("JSM deployment finished, you should now be able to login")}
 
         cleanup:
         groovyContainer.stopAndRemoveContainer()
@@ -90,11 +102,16 @@ class ExamplesTest extends DevStackSpec{
         groovyContainer.copyFileToContainer(resourcesDir.canonicalPath, "/home/resources/") //Copy over application licenses etc
 
 
-
-
         when:
+        String scriptText = scriptFile.text
+        scriptText = replaceVariableValue(scriptText, "jiraBaseUrl", "\"http://jira.local:8080\"")
+        scriptText = replaceVariableValue(scriptText, "bbBaseUrl", "\"http://bitbucket.local:7990\"")
+        scriptText = replaceVariableValue(scriptText, "jsmLicense", "\"\"\"${jsmLicenseFile.text}\"\"\"")
+        scriptText = replaceVariableValue(scriptText, "scriptRunnerLicense", "\"\"\"${srLicenseFile.text}\"\"\"")
+        scriptText = replaceVariableValue(scriptText, "bbLicense", "\"\"\"${bitbucketLicenseFile.text}\"\"\"")
 
-        ArrayList<String> scriptOutput = groovyContainer.runScriptInContainer(scriptFile.text,"-Dorg.slf4j.simpleLogger.defaultLogLevel=trace", "",600, "root" )
+
+        ArrayList<String> scriptOutput = groovyContainer.runScriptInContainer(scriptText,"-Dorg.slf4j.simpleLogger.defaultLogLevel=trace", "",600, "root" )
 
         then:
         !scriptOutput.any {it.contains("unable to resolve class")}
