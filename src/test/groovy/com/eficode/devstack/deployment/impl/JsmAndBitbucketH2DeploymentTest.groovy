@@ -44,7 +44,7 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
 
         setup:
 
-        JsmAndBitbucketH2Deployment jsmAndBb = new JsmAndBitbucketH2Deployment(jiraBaseUrl, bitbucketBaseUrl, dockerHost, dockerCertPath)
+        JsmAndBitbucketH2Deployment jsmAndBb = new JsmAndBitbucketH2Deployment(jiraBaseUrl, bitbucketBaseUrl, dockerHost, certPath)
 
         jsmAndBb.jiraAppsToInstall = [
                 "https://marketplace.atlassian.com/download/apps/6820/version/1006540": new File("resources/jira/licenses/scriptrunnerForJira.license").text
@@ -52,10 +52,6 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
 
         jsmAndBb.bitbucketLicense = bitbucketLicenseFile.text
         jsmAndBb.jiraLicense = jsmLicenseFile.text
-
-        //TODO Update Bitbucket instance manager to support 8.5, appears to fail setting database
-        jsmAndBb.bitbucketContainer.containerImageTag = "8.4.1"
-
 
         expect:
         jsmAndBb.setupDeployment()
