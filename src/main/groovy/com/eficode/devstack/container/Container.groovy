@@ -742,10 +742,10 @@ trait Container {
     }
 
     /**
-     * Set custom environmental variables. Must be set before creating container
+     * Prepare custom environmental variables. Must be set before creating container
      * @param keyVar Ex: ["key=value", "PATH=/user/local/sbin"]
      */
-    void setCustomEnvVar(ArrayList<String> keyVar) {
+    void prepareCustomEnvVar(ArrayList<String> keyVar) {
 
         assert hasNeverBeenStarted(): "Error, cant set custom enviromental variables after creating container"
 
