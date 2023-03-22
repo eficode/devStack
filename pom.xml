@@ -6,7 +6,7 @@
 
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
-    <version>2.2.2-SNAPSHOT-groovy-${groovy.version}</version>
+    <version>2.2.3-SNAPSHOT-groovy-${groovy.version}</version>
     <packaging>jar</packaging>
 
     <name>DevStack</name>
