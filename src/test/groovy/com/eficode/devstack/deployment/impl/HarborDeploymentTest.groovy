@@ -10,8 +10,8 @@ import org.slf4j.LoggerFactory
 class HarborDeploymentTest extends DevStackSpec {
     def setupSpec() {
 
-        dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "~/.docker/"
+        //dockerRemoteHost = "https://docker.domain.se:2376"
+        //dockerCertPath = "~/.docker/"
 
 
         log = LoggerFactory.getLogger(HarborDeploymentTest.class)
@@ -87,7 +87,7 @@ class HarborDeploymentTest extends DevStackSpec {
         where:
         dockerHost       | certPath       | harborBaseUrl             | harborVersion | harborBaseDir
         ""               | ""             | "http://localhost"        | "v2.6.0"      | "/tmp"
-        //dockerRemoteHost | dockerCertPath | "http://harbor.domain.se" | "v2.6.0"      | "/tmp"
+        dockerRemoteHost | dockerCertPath | "http://harbor.domain.se" | "v2.6.0"      | "/tmp"
 
     }
 }
