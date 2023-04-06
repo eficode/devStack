@@ -15,8 +15,8 @@ class JsmH2DeploymentTest extends DevStackSpec {
 
     def setupSpec() {
 
-        dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "~/.docker/"
+        //dockerRemoteHost = "https://docker.domain.se:2376"
+        //dockerCertPath = "~/.docker/"
 
 
         log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
