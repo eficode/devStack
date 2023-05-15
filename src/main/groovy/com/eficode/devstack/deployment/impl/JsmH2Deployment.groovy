@@ -104,7 +104,9 @@ class JsmH2Deployment implements Deployment{
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")
 
-
+        log.info("\tCreating jira-config.properties")
+        String cmdJiraConfigProperties = "echo \"jira.websudo.is.disabled=true\" >> jira-config.properties; chown jira:jira jira-config.properties && echo status: \$?"
+        assert jsmContainer.runBashCommandInContainer(cmdJiraConfigProperties).find {it == "status: 0"} : "Error creating jira-config.properties file"
 
         log.info("\tSetting up local H2 database")
         assert jiraRest.setupH2Database() : "Error setting up H2 database for JSM"
