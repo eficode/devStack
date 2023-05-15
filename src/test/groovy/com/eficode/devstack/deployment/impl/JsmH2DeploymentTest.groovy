@@ -49,6 +49,11 @@ class JsmH2DeploymentTest extends DevStackSpec {
         Unirest.get(baseurl).asEmpty().status == 200
         jsmDep.jsmContainer.inspectContainer().networkSettings.ports.find { it.key == "$port/tcp" }
 
+        //Make sure websudo was disabled
+        jsmDep.jsmContainer.runBashCommandInContainer("cat jira-config.properties").find {it == "jira.websudo.is.disabled=true"}
+        jsmDep.jsmContainer.containerLogs.find {it.matches(".*jira.websudo.is.disabled.*:.*true.*")}
+
+
 
         where:
         baseurl                       | port   | dockerHost       | certPath
