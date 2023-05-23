@@ -6,7 +6,7 @@
 
     <groupId>com.eficode</groupId>
     <artifactId>devstack</artifactId>
-    <version>2.3.1-SNAPSHOT</version>
+    <version>2.3.2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>DevStack</name>
@@ -98,7 +98,7 @@
         <dependency>
             <groupId>de.gesellix</groupId>
             <artifactId>docker-client</artifactId>
-            <version>2022-07-28T22-55-00</version>
+            <version>2023-05-07T23-22-00</version>
         </dependency>
 
         <!--dependency>
