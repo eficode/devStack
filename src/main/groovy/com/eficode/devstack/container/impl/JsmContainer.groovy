@@ -22,12 +22,23 @@ class JsmContainer implements Container {
     String containerImageTag = "latest"
     long jvmMaxRam = 6000
 
+    private String debugPort //Contains the port used for JVM debug
+
     JsmContainer(String dockerHost = "", String dockerCertPath = "") {
         if (dockerHost && dockerCertPath) {
             assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
         }
     }
 
+    /**
+     * Enables JVM debug of JIRA for port portNr
+     * @param portNr
+     */
+    void enableJvmDebug(String portNr = "5005") {
+
+        assert !created: "Error, cant enable JVM Debug for a container that has already been crated"
+        debugPort = portNr
+    }
 
     /**
      * Gets the latest version number from Atlassian Marketplace
@@ -38,9 +49,9 @@ class JsmContainer implements Container {
         UnirestInstance unirest = Unirest.spawnInstance()
 
         HttpResponse<JsonResponse> response = unirest.get("https://marketplace.atlassian.com/rest/2/products/key/jira-servicedesk/versions/latest").asJson() as HttpResponse<JsonResponse>
-        assert response.success : "Error getting latest JSM version from marketplace"
+        assert response.success: "Error getting latest JSM version from marketplace"
         String version = response?.body?.object?.get("name")
-        assert version : "Error parsing latest JSM version from marketplace response"
+        assert version: "Error parsing latest JSM version from marketplace response"
 
         unirest.shutDown()
 
@@ -50,7 +61,7 @@ class JsmContainer implements Container {
     @Override
     ContainerCreateRequest setupContainerCreateRequest() {
 
-       String image = containerImage + ":" + containerImageTag
+        String image = containerImage + ":" + containerImageTag
 
         log.debug("Setting up container create request for JSM container")
         if (dockerClient.engineArch != "x86_64") {
@@ -72,13 +83,24 @@ class JsmContainer implements Container {
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
             c.image = image
+            c.hostname = containerName
+            c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "ATL_TOMCAT_PORT=" + containerMainPort] + customEnvVar
+
+
             c.exposedPorts = [(containerMainPort + "/tcp"): [:]]
             c.hostConfig = new HostConfig().tap { h ->
                 h.portBindings = [(containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (containerMainPort))]]
+
+                if (debugPort) {
+                    h.portBindings.put((debugPort + "/tcp"), [new PortBinding("0.0.0.0", (debugPort))])
+                    c.exposedPorts.put((debugPort + "/tcp"), [:])
+                    c.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=-Xdebug -Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n".toString())
+                }
+
+
                 h.mounts = this.mounts
             }
-            c.hostname = containerName
-            c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "ATL_TOMCAT_PORT=" + containerMainPort] + customEnvVar
+
 
 
         }
@@ -86,10 +108,6 @@ class JsmContainer implements Container {
         return containerCreateRequest
 
     }
-
-
-
-
 
 
     boolean runOnFirstStartup() {
