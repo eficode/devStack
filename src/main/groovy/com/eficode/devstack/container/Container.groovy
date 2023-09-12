@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import java.util.concurrent.TimeoutException
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
@@ -91,8 +92,17 @@ trait Container {
 
         }
 
-        return containerCreateRequest
+        return customizeContainerCreateRequest(containerCreateRequest)
 
+    }
+
+    /**
+     * Helper method that allows you to easily customize the ContainerCreateRequest by overriding just this method
+     * @param containerCreateRequest
+     * @return
+     */
+    ContainerCreateRequest customizeContainerCreateRequest(ContainerCreateRequest containerCreateRequest) {
+        return containerCreateRequest
     }
 
     /**
@@ -108,7 +118,7 @@ trait Container {
         ContainerCreateRequest containerCreateRequest = setupContainerCreateRequest()
 
         if (cmd.size()) {
-            containerCreateRequest.cmd = cmd
+            containerCreateRequest.cmd = cmd.collect {it.toString()}
         }
 
         if (entrypoint.size()) {
@@ -180,7 +190,7 @@ trait Container {
         return containerId
     }
 
-    def getSelf() {
+    Container getSelf() {
         return this
     }
 
@@ -625,7 +635,7 @@ trait Container {
     }
 
     /**
-     * Copy files from a container
+     * Copy files from a container to local machine
      * @param containerPath can be a file or a path (ending in /)
      * @param destinationPath
      * @return
@@ -714,6 +724,121 @@ trait Container {
 
     }
 
+    /**
+     * Creates an temporary container, runs a command, exits and removes container
+     * @param cmd A string that will be passed as a command to /bin/sh -c, ex: echo start;sleep 5
+     * @param timeoutMs
+     *      0 don't wait, return an array with the container ID immediately,
+     *      timeoutMs > 0 Wait for container to stop, if it takes longer than timeoutMs an exception will be thrown
+     * @param mounts bind mounts that the container should have:
+     *      readOnly is optional and defaults to true
+     *      ex:[[src: "/tmp/engine/test", target: "/tmp/container/test", readOnly :true]
+     * @param dockerHost
+     * @param dockerCertPath
+     * @return An array of the container logs, or just an array containing container id if timeoutMs == 0
+     */
+    static ArrayList<String> runCmdAndRm(String cmd, long timeoutMs, ArrayList<Map> mounts = [], String dockerHost = "", String dockerCertPath = "") {
+
+
+        return runCmdAndRm(["/bin/sh", "-c", cmd], timeoutMs, mounts, dockerHost, dockerCertPath)
+    }
+
+
+
+    /**
+     * Creates a temporary container, runs a command, exits and removes container
+     * @param container a container object that hasnt yet been created
+     * @param cmd An array of commands to run, ex: [ "/bin/sh", "-c", "echo start;sleep 5"]
+     * @param timeoutMs
+     *      0 don't wait, return an array with the container ID immediately,
+     *      timeoutMs > 0 Wait for container to stop, if it takes longer than timeoutMs an exception will be thrown
+     * @param mounts bind mounts that the container should have:
+     *      readOnly is optional and defaults to true
+     *      ex:[[src: "/tmp/engine/test", target: "/tmp/container/test", readOnly :true]
+     * @param dockerHost
+     * @param dockerCertPath
+     * @return An array of the container logs, or just an array containing container id if timeoutMs == 0
+     */
+    static ArrayList<String> runCmdAndRm( ArrayList<String> cmd, long timeoutMs, ArrayList<Map> mounts = [], String dockerHost = "", String dockerCertPath = "") {
+
+
+        Container container = this.getConstructor(String, String).newInstance(dockerHost, dockerCertPath)
+
+        Logger log = LoggerFactory.getLogger(this.class)
+
+
+
+        log.info("Creating a $container.class.simpleName and running:")
+        log.info("\tCmd:" + cmd)
+
+
+
+        try {
+
+            container.containerName = container.containerName + "-cmd-" + System.currentTimeMillis().toString()[-5..-1]
+
+            mounts.each {
+                log.info("\tPreparing Bind mount:")
+                container.prepareBindMount(it.src as String, it.target as String, it.containsKey("readOnly") ? it.readOnly as Boolean : true)
+            }
+
+
+            container.createContainer(cmd)
+            log.info("\tCreated container: " + container.id)
+
+
+            log.info("\tStarted container: " + container.startContainer())
+            assert !container.hasNeverBeenStarted(): "Error starting CMD container"
+
+            if (timeoutMs == 0) {
+                log.info("\tNo Timeout set, returning container id")
+                return [container.id]
+            }
+
+            long start = System.currentTimeMillis()
+
+            while (start + timeoutMs > System.currentTimeMillis() && container.running) {
+
+                log.info("\tWaited ${System.currentTimeMillis() - start}ms for container to stop")
+                sleep(1000)
+
+            }
+            log.info("\tContainer finisehd or timed out after ${System.currentTimeMillis() - start}ms")
+
+            if (container.running) {
+                log.info("\t"*2 + "Stopping container forcefully.")
+                ArrayList<String> containerOut = container.containerLogs
+                assert container.stopAndRemoveContainer(1): "Error stopping and removing CMD container after it timed out"
+
+                throw new TimeoutException("CMD container timed out, was forcefully stopped and removed. Container logs:" + containerOut?.join("\n"))
+            }
+
+
+
+            ArrayList<String> containerOut = container.containerLogs
+
+            log.info("\tReturning ${containerOut.size()} log lines")
+
+            assert container.stopAndRemoveContainer(): "Error removing Container:" + container.id
+            log.info("\tRemoved container:" + container.id)
+
+            return containerOut
+        } catch (ex) {
+
+
+            try {
+                container.stopAndRemoveContainer(1)
+            } catch (ignored){}
+
+
+
+            throw ex
+
+        }
+
+
+    }
+
 
     /**
      * Gets the port from a URL
@@ -747,7 +872,7 @@ trait Container {
      */
     void prepareCustomEnvVar(ArrayList<String> keyVar) {
 
-        assert hasNeverBeenStarted(): "Error, cant set custom enviromental variables after creating container"
+        assert hasNeverBeenStarted(): "Error, cant set custom environment variables after creating container"
 
         self.customEnvVar = keyVar
     }
