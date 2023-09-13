@@ -4,8 +4,8 @@
   <artifactId>devstack</artifactId>
   <versioning>
     <versions>
-      <version>2.3.3-SNAPSHOT</version>
+      <version>2.3.4-SNAPSHOT</version>
     </versions>
-    <lastUpdated>20230825083644</lastUpdated>
+    <lastUpdated>20230913072906</lastUpdated>
   </versioning>
 </metadata>
