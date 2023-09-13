@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory
 
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.temporal.TemporalAdjuster
 
 /**
@@ -23,14 +26,13 @@ import java.time.temporal.TemporalAdjuster
  * you change it for all running containers
  *
  */
-class TimeMachine implements Container{
+class TimeMachine implements Container {
 
     String containerName = "TimeMachine"
     String containerMainPort = null
     String containerImage = "alpine"
     String containerImageTag = "latest"
     String defaultShell = "/bin/sh"
-
 
 
     /**
@@ -42,11 +44,12 @@ class TimeMachine implements Container{
      * @return true after verifying success
      */
     static boolean travelToNow(String dockerHost = "", String dockerCertPath = "") {
+
         return setTime(System.currentTimeSeconds(), dockerHost, dockerCertPath)
     }
 
     /**
-     * Travel X days in time
+     * Travel X days in time from actual "Now"
      * <b>NEVER EVER</b> use this class on a production docker engine <p>
      * <b>WARNING THIS AFFECTS ALL CONTAINERS - READ CLASS DOCUMENTATION</b>
      * @param days Number of days to travel, can be negative (to the past) or positive (to the future)
@@ -56,10 +59,70 @@ class TimeMachine implements Container{
      */
     static boolean travelDays(int days, String dockerHost = "", String dockerCertPath = "") {
 
-        long newEpochS = System.currentTimeSeconds() +  Duration.ofDays(days).toSeconds()
+        long newEpochS = System.currentTimeSeconds() + Duration.ofDays(days).toSeconds()
 
         return setTime(newEpochS, dockerHost, dockerCertPath)
 
+    }
+
+    /**
+     * Travel X days in time relative to
+     * <b>NEVER EVER</b> use this class on a production docker engine <p>
+     * <b>WARNING THIS AFFECTS ALL CONTAINERS - READ CLASS DOCUMENTATION</b>
+     * @param days Number of days to travel, can be negative (to the past) or positive (to the future)
+     * @param dockerHost optional
+     * @param dockerCertPath optional
+     * @return true after verifying success
+     */
+    static boolean travelRelativeDays(int days, String dockerHost = "", String dockerCertPath = "") {
+
+        long currentDockerTime = getDockerTime(dockerHost, dockerCertPath)
+
+        long newEpochS = currentDockerTime + Duration.ofDays(days).toSeconds()
+
+        return setTime(newEpochS, dockerHost, dockerCertPath)
+
+    }
+
+    /**
+     * Set new time based on Date object
+     * <b>NEVER EVER</b> use this class on a production docker engine <p>
+     * <b>WARNING THIS AFFECTS ALL CONTAINERS - READ CLASS DOCUMENTATION</b>
+     * @param date A date object to use as the new "now"
+     * @param dockerHost optional
+     * @param dockerCertPath optional
+     * @return true after verifying success
+     */
+    static boolean setDate(Date date, String dockerHost = "", String dockerCertPath = "") {
+        return setTime(((date.toInstant().toEpochMilli()) / 1000).toInteger(), dockerHost, dockerCertPath)
+    }
+
+    /**
+     * Set new time based on LocalDateTime object, uses the system default Time Zone
+     * <b>NEVER EVER</b> use this class on a production docker engine <p>
+     * <b>WARNING THIS AFFECTS ALL CONTAINERS - READ CLASS DOCUMENTATION</b>
+     * @param localDateTime A LocalDateTime object to use as the new "now"
+     * @param dockerHost optional
+     * @param dockerCertPath optional
+     * @return true after verifying success
+     */
+    static boolean setLocalDateTime(LocalDateTime localDateTime, String dockerHost = "", String dockerCertPath = "") {
+
+        return setTime(localDateTime.toEpochSecond(ZoneId.systemDefault().offset), dockerHost, dockerCertPath)
+    }
+
+    /**
+     * Set new time based on LocalDate object
+     * <b>NEVER EVER</b> use this class on a production docker engine <p>
+     * <b>WARNING THIS AFFECTS ALL CONTAINERS - READ CLASS DOCUMENTATION</b>
+     * @param LocalDate A LocalDate object to use as the new "now"
+     * @param dockerHost optional
+     * @param dockerCertPath optional
+     * @return true after verifying success
+     */
+    static boolean setLocalDate(LocalDate localDate, String dockerHost = "", String dockerCertPath = "") {
+
+        return setTime(localDate.toEpochDay(), dockerHost, dockerCertPath)
     }
 
 
@@ -79,25 +142,37 @@ class TimeMachine implements Container{
         log.warn("THIS WILL AFFECT ALL CONTAINERS RUN BY THIS DOCKER ENGINE")
 
 
-        assert epochS <= 9999999999 && epochS > 1000000000 : "Provide timestamp in epoch seconds"
-        ArrayList<String> cmdOut = runCmdAndRm(["nsenter" ,"-t" ,"1" ,"-m" ,"-u" ,"-n", "-i", "sh", "-c", "pkill sntpc || date -s \"@${epochS}\" && echo Status \$?"], 5000, [] , dockerHost, dockerCertPath)
-        assert cmdOut.toString().contains("Status 0") : "Error setting time"
+        assert epochS <= 9999999999 && epochS > 1000000000: "Provide timestamp in epoch seconds"
+        ArrayList<String> cmdOut = runCmdAndRm(["nsenter", "-t", "1", "-m", "-u", "-n", "-i", "sh", "-c", "pkill sntpc || date -s \"@${epochS}\" && echo Status \$?"], 5000, [], dockerHost, dockerCertPath)
+        assert cmdOut.toString().contains("Status 0"): "Error setting time"
 
-        cmdOut = runCmdAndRm('date +"%s"', 5000, [], dockerHost, dockerCertPath )
+        long newTime = getDockerTime(dockerHost, dockerCertPath)
 
-
-        long newTime = cmdOut.find {it.isNumber()}?.toLong() ?: 0
-        assert newTime : "Unexpected output when verifying time was change"
-        assert newTime >= epochS : "The newly set time appears incorrect: " + newTime
+        assert newTime >= epochS: "The newly set time appears incorrect: " + newTime
 
         return true
 
     }
 
+    /**
+     * Get current time as reported by a docker container
+     * @param dockerHost
+     * @param dockerCertPath
+     * @return Epoch Seconds
+     */
+    static long getDockerTime(String dockerHost = "", String dockerCertPath = "") {
+
+        ArrayList<String> cmdOut = runCmdAndRm('date +"%s"', 5000, [], dockerHost, dockerCertPath)
+        long timeStamp = cmdOut.find { it.isNumber() }?.toLong() ?: 0
+        assert timeStamp: "Unexpected output when getting docker time"
+
+        return timeStamp
+
+    }
 
 
     @Override
-    ContainerCreateRequest customizeContainerCreateRequest(ContainerCreateRequest containerCreateRequest){
+    ContainerCreateRequest customizeContainerCreateRequest(ContainerCreateRequest containerCreateRequest) {
 
 
         containerCreateRequest.hostConfig.setPrivileged(true)
