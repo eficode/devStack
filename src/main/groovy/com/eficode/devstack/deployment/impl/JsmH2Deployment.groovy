@@ -115,6 +115,12 @@ class JsmH2Deployment implements Deployment{
         assert jiraRest.setApplicationProperties(jiraLicense, "JIRA", jiraBaseUrl)
         log.info("\t\tLicense and properties setup successfully")
 
+        if (jiraRest.setupUserBasicPref()) {
+            log.info("\tSetup defaults for user ${jiraRest.adminUsername} and removed pop-ups")
+        }else {
+            log.warn("\tThere was a problem setting defaults for user ${jiraRest.adminUsername} and removing pop-ups")
+        }
+
        if(appsToInstall) {
            installApps()
        }
