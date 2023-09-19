@@ -36,7 +36,7 @@ class JsmH2DeploymentTest extends DevStackSpec {
         JsmH2Deployment jsmDep = new JsmH2Deployment(baseurl, dockerHost, certPath)
 
 
-        jsmDep.setJiraLicense(new File(projectRoot.path + "/resources/jira/licenses/jsm.license"))
+        jsmDep.setJiraLicense(new File(System.getProperty("user.home") + "/.licenses/jira/jsm.license").text)
         jsmDep.appsToInstall = [
                 "https://marketplace.atlassian.com/download/apps/1211542/version/302030": ""
         ]
