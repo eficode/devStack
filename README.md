@@ -38,7 +38,10 @@ SubDeployments are simply a collection of deployments used by a more complex dep
 
 ## Utils
 
-These are classes mainly intended to be used by Container/Deployment-classes when massaging of the containers are needed for example. Currently [ImageBuilder.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FImageBuilder.groovy) dynamically builds Atlassian images for non x86 architectures on the fly.
+These are classes mainly intended to be used by Container/Deployment-classes when massaging of the containers are needed for example. 
+Currently, [ImageBuilder.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FImageBuilder.groovy) dynamically builds Atlassian images for non x86 architectures on the fly.
+[TimeMachine.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FTimeMachine.groovy) changes the apparent time for all
+containers sharing a Docker Engine, intended for testing date changes.
 
 # Setup Docker Engine in AWS
 
@@ -90,15 +93,15 @@ JsmH2Deployment jsmDep = new JsmH2Deployment(jiraBaseUrl, dockerRemoteHost, dock
 
 ## Using DevStack in your project
 
-A note on versions, DevStack is cross-compiled for both Groovy 3 and 2.5, these editions are also available in a standalone edition with shaded dependencies.
+A note on versions, DevStack is available in two version a "normal" one and a standalone edition with shaded dependencies.
 
 The standalone edition should alleviate dependency issues but is also larger
 
 Examples:
- * com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5
-   * DevStack version 2.0.0, compiled for groovy 2.5
- * devstack:2.0.0-SNAPSHOT-groovy-3.0:jar:standalone
-   * DevStack version 2.0.0, compiled for groovy 3, standalone edition.
+ * com.eficode:devstack:2.3.9-SNAPSHOT
+   * DevStack version 2.3.9-SNAPSHOT
+ * com.eficode:devstack-standalone:2.3.9-SNAPSHOT
+   * DevStack version 2.3.9-SNAPSHOT, standalone edition.
 
 To find the latest version, check the "packages" branch: https://github.com/eficode/devStack/tree/packages/repository/com/eficode/devstack
 
@@ -107,10 +110,10 @@ To find the latest version, check the "packages" branch: https://github.com/efic
 
 ```bash
 
-mvn dependency:get -Dartifact=com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5 -DremoteRepositories=https://github.com/eficode/DevStack/raw/packages/repository/
+mvn dependency:get -Dartifact=com.eficode:devstack:2.3.9-SNAPSHOT -DremoteRepositories=https://github.com/eficode/DevStack/raw/packages/repository/
 
 
-mvn dependency:get -Dartifact=com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5:jar:standalone -DremoteRepositories=https://github.com/eficode/DevStack/raw/packages/repository/
+mvn dependency:get -Dartifact=com.eficode:devstack-standalone:2.3.9-SNAPSHOT -DremoteRepositories=https://github.com/eficode/DevStack/raw/packages/repository/
 
 ```
 
@@ -124,9 +127,9 @@ mvn dependency:get -Dartifact=com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5:jar
    <dependency>
          <groupId>com.eficode</groupId>
          <artifactId>devstack</artifactId>
-         <version>2.0.0-SNAPSHOT-groovy-3.0</version>
-         <!--Optional standalone classifier-->
-         <!--classifier>standalone</classifier-->
+         <version>2.3.9-SNAPSHOT</version>
+         <!--Optional standalone version-->
+        <!--artifactId>devstack-standalone</artifactId-->
      </dependency>
 </dependencies>
 
@@ -141,3 +144,15 @@ mvn dependency:get -Dartifact=com.eficode:devstack:2.0.0-SNAPSHOT-groovy-2.5:jar
 ..
 ....
 ```
+
+### Grape Dependency
+```groovy
+@GrabResolver(name = "devstack-github", root = "https://github.com/eficode/devstack/raw/packages/repository/")
+@Grab(group = "com.eficode" , module = "devstack-standalone", version = "2.3.9-SNAPSHOT")
+```
+
+
+# Breaking Changes
+
+* 2.3.9
+  * From now on two artifacts will be generated, devstack and devstack-standalone and the classifier standalone is deprecated
