@@ -23,7 +23,7 @@ class DoodContainer implements Container {
         if (dockerHost && dockerCertPath) {
             assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
         }
-        prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock")
+        prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock", false)
     }
 
     @Override
@@ -55,6 +55,26 @@ class DoodContainer implements Container {
         assert  cmdOutput.any {it.contains(dockerClient.info().content.getID() )} : "Error, child container can not communicate with parent docker node"
 
         return runAfterDockerSetup()
+    }
+
+    /**
+     * Changes the owner of /var/run/docker.sock, intended to give low privileged container users access to the docker engine
+     * @param user defaults to the container images default user
+     * @return true on success
+     */
+    boolean changeDockerSockOwner(String user = "") {
+        if (user == "") {
+            user = runBashCommandInContainer("whoami").find {true}
+        }
+
+        ArrayList<String> cmdOutput =  runBashCommandInContainer("chown $user:$user /var/run/docker.sock && echo Status:\$?", 30, "root")
+        assert cmdOutput.last() == "Status:0" : "Error changing docker socket owner to $user"
+
+        cmdOutput = runBashCommandInContainer("docker info | grep ID:", 10, user)
+        assert  cmdOutput.any {it.contains(dockerClient.info().content.getID() )} : "Error accessing docker socket as $user"
+
+        return true
+
     }
 
     /**

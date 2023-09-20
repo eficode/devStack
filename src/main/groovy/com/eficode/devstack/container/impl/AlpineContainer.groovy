@@ -25,13 +25,7 @@ class AlpineContainer implements Container {
         }
     }
 
-    /**
-     * Will create an Alpine Container that will sleep indefinitely
-     * @return
-     */
-    String createSleepyContainer() {
-        return createContainer([], ["tail", "-f", "/dev/null"])
-    }
+
 
 
 
