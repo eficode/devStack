@@ -55,6 +55,12 @@ trait Container {
     ArrayList<Mount> mounts = []
 
 
+    /**
+     * Prior to create a container, prepare mount-points
+     * @param sourceAbs The source directory in the docker engine
+     * @param target The target directory inside the container
+     * @param readOnly
+     */
     void prepareBindMount(String sourceAbs, String target, boolean readOnly = true) {
 
         Mount newMount = new Mount().tap { m ->
@@ -134,6 +140,15 @@ trait Container {
         containerId = response.content.id
         return containerId
 
+    }
+
+
+    /**
+     * Will create a Container that will sleep indefinitely, ie wont shut of once entrypoint has finished executing
+     * @return container id
+     */
+    String createSleepyContainer() {
+        return createContainer([], ["tail", "-f", "/dev/null"])
     }
 
 
