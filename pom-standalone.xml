@@ -1,13 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project>
     <modelVersion>4.0.0</modelVersion>
 
+
     <groupId>com.eficode</groupId>
-    <artifactId>devstack</artifactId>
+    <artifactId>devstack-standalone</artifactId>
     <version>2.3.8-SNAPSHOT</version>
     <packaging>jar</packaging>
+
 
     <name>DevStack</name>
 
@@ -161,6 +160,73 @@
     <build>
         <!--sourceDirectory>${basedir}/src/main/groovy/</sourceDirectory-->
         <plugins>
+            <plugin>
+                <!-- Configured in pluginManagement instead of plugins, because we do not want a shaded parent POM -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Will output 2 jars: the original, and the shaded one -->
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+
+                            <!-- final name of the shaded jar will be ${project.artifactId}-standalone -->
+                            <!--shadedClassifierName>standalone</shadedClassifierName-->
+
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/*.MF</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>org.codehaus.groovy:*</exclude>
+                                    <!--exclude>org.codehaus.groovy:groovy</exclude>
+                                    <exclude>org.codehaus.groovy:groovy-astbuilder</exclude-->
+                                    <exclude>com.google.code.gson:gson</exclude>
+                                    <exclude>org.apache.httpcomponents</exclude>
+                                    <!--exclude>commons-*</exclude--> <!--Seems to break JenkinsAndHarborDeployment.groovy:103, needs org/apache/commons/io/FileUtils-->
+                                    <exclude>com.kohlschutter.junixsocket:junixsocket-core</exclude>
+                                </excludes>
+
+                            </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.eficode.atlassian</pattern>
+                                    <shadedPattern>com.eficode.shaded.atlassian</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>okio</pattern>
+                                    <shadedPattern>com.eficode.shaded.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>okhttp3</pattern>
+                                    <shadedPattern>com.eficode.shaded.okhttp3</shadedPattern>
+                                </relocation>
+                            </relocations>
+
+                            <!-- NOTE: Any dependencies of the project will not show up in the standalone pom.
+                            This means that if those dependencies are not properly relocated and there is a class-loading conflict,
+                            user would not be able to figure out where the conflicting dependency is. -->
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+
+                            <createSourcesJar>true</createSourcesJar>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -214,5 +280,6 @@
             </plugin>
         </plugins>
     </build>
+
 
 </project>
