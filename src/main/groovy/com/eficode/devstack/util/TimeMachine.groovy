@@ -2,15 +2,20 @@ package com.eficode.devstack.util
 
 import com.eficode.devstack.container.Container
 import de.gesellix.docker.remote.api.ContainerCreateRequest
+import kong.unirest.HttpResponse
+import kong.unirest.JsonResponse
+import kong.unirest.Unirest
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.text.SimpleDateFormat
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjuster
+import kong.unirest.UnirestInstance
 
 /**
  * <b>WARNING THIS AFFECTS ALL CONTAINERS</b>
@@ -33,7 +38,7 @@ class TimeMachine implements Container {
     String containerImage = "alpine"
     String containerImageTag = "latest"
     String defaultShell = "/bin/sh"
-
+    UnirestInstance unirest = Unirest.spawnInstance()
 
     /**
      * Travel back to the present
@@ -43,10 +48,15 @@ class TimeMachine implements Container {
      * @param dockerCertPath optional
      * @return true after verifying success
      */
-    static boolean travelToNow(String dockerHost = "", String dockerCertPath = "") {
-
-        return setTime(System.currentTimeSeconds(), dockerHost, dockerCertPath)
+    static boolean travelToNow(String dockerHost = "", String dockerCertPath = "", boolean useExternalSource) {
+        if(useExternalSource){
+            long timeFromExternal = getExternalTime()
+            return setTime(timeFromExternal, dockerHost, dockerCertPath)
+        } else {
+            return setTime(System.currentTimeSeconds(), dockerHost, dockerCertPath)
+        }
     }
+
 
     /**
      * Travel X days in time from actual "Now"
@@ -152,6 +162,14 @@ class TimeMachine implements Container {
 
         return true
 
+    }
+
+    static long getExternalTime(){
+        HttpResponse<JsonResponse> response = Unirest.get("http://google.com").asJson() as HttpResponse<JsonResponse>
+        String dateString = response.headers["Date"].first()
+        def dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z")
+        Date date = dateFormat.parse(dateString)
+        return date.time / 1000
     }
 
     /**
