@@ -40,6 +40,12 @@ class TimeMachine implements Container {
     String defaultShell = "/bin/sh"
     UnirestInstance unirest = Unirest.spawnInstance()
 
+    TimeMachine(String dockerHost = "", String dockerCertPath = "") {
+        if (dockerHost && dockerCertPath) {
+            assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
+        }
+    }
+
     /**
      * Travel back to the present
      * <b>NEVER EVER</b> use this class on a production docker engine <p>
