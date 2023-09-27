@@ -3,13 +3,18 @@
  * additional build steps for shading based on shadingConf.xml
  */
 String projectBasePath = project.basedir
+println("Base dir:" + projectBasePath)
 File origPom = new File(projectBasePath + "/pom.xml")
-File shadingConf = new File(projectBasePath + "/.github/buildScripts/shadingConf.xml")
+File shadingConf = new File(origPom.parentFile.parentFile.absolutePath + "/.github/buildScripts/shadingConf.xml")
+
 
 String newPomBody = origPom.text.replace("<plugins>", "<plugins>\n" + shadingConf.text)
 
 newPomBody = newPomBody.replaceFirst("<artifactId>devstack<\\/artifactId>", "<artifactId>devstack-standalone<\\/artifactId>")
 
-File standalonePom = new File(projectBasePath + "/pom-standalone.xml")
+File standalonePom = new File(projectBasePath + "/devstack-standalone"  + "/pom-standalone.xml")
+standalonePom.mkdirs()
 standalonePom.createNewFile()
 standalonePom.text = newPomBody
+
+println("Created:" + standalonePom.absolutePath)

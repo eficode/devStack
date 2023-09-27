@@ -39,7 +39,7 @@ variable "ssh-public-key-local-path" {
 
 
 variable "trusted-external-ips" {
-  description = "These IPs will have acces to the exposed ports"
+  description = "These IPs will have access to the exposed ports"
   type = set(string)
   default = ["1.2.3.4/32"]
   
@@ -58,7 +58,7 @@ variable "ec2-instance-type" {
 }
 
 variable "ingress_rules_from_trusted" {
-    description = "This will expose the coresponding ports to the internet, but limited to trusted-external-ips"
+    description = "This will expose the corresponding ports to the internet, but limited to trusted-external-ips"
     type = list(object({
       port   = number
       protocol    = string
