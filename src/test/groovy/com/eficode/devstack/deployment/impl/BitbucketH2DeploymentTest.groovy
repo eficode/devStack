@@ -1,11 +1,7 @@
 package com.eficode.devstack.deployment.impl
 
 import com.eficode.devstack.DevStackSpec
-import com.eficode.devstack.util.DockerClientDS
-import de.gesellix.docker.engine.DockerClientConfig
-import de.gesellix.docker.engine.DockerEnv
 import kong.unirest.Unirest
-import org.apache.commons.io.FileUtils
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 
@@ -23,8 +19,7 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
         //dockerCertPath = "~/.docker/"
 
 
-
-        log = LoggerFactory.getLogger(BitbucketH2DeploymentTest.class)
+        DevStackSpec.log = LoggerFactory.getLogger(BitbucketH2DeploymentTest.class)
 
         cleanupContainerNames = ["bitbucket.domain.se", "bitbucket2.domain.se" , "localhost"]
         cleanupContainerPorts = [7990, 7992, 80]

@@ -12,7 +12,7 @@ class DoodContainerTest extends DevStackSpec {
         dockerCertPath = "~/.docker/"
 
 
-        log = LoggerFactory.getLogger(DoodContainerTest.class)
+        DevStackSpec.log = LoggerFactory.getLogger(DoodContainerTest.class)
 
 
         cleanupContainerNames = ["dood.domain.se"]

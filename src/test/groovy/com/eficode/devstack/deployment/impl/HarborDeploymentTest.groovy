@@ -14,7 +14,7 @@ class HarborDeploymentTest extends DevStackSpec {
         //dockerCertPath = "~/.docker/"
 
 
-        log = LoggerFactory.getLogger(HarborDeploymentTest.class)
+        DevStackSpec.log = LoggerFactory.getLogger(HarborDeploymentTest.class)
 
         cleanupContainerPorts = [80]
 
@@ -76,7 +76,7 @@ class HarborDeploymentTest extends DevStackSpec {
         containerIdsBeforeStart.sort() == hd.getHarborContainers().id.sort()
         hd.getContainers().every { it.status() == ContainerState.Status.Running }
         Unirest.get(harborBaseUrl).basicAuth("admin", "Harbor12345").asEmpty().status == 200
-        log.info("\tSuccessful harbor Web login! ")
+        DevStackSpec.log.info("\tSuccessful harbor Web login! ")
 
         when:
         hd.stopAndRemoveDeployment()

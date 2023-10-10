@@ -31,7 +31,7 @@ class JsmAndBitbucketH2DeploymentTest extends DevStackSpec {
         dockerCertPath = "~/.docker/"
 
 
-        log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
+        DevStackSpec.log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
 
 
         cleanupContainerNames = ["jira.domain.se", "jira2.domain.se", "bitbucket.domain.se", "bitbucket2.domain.se"]

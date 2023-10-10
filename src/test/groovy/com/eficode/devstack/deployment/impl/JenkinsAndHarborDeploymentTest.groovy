@@ -12,7 +12,7 @@ class JenkinsAndHarborDeploymentTest extends DevStackSpec {
         dockerCertPath = "~/.docker/"
 
 
-        log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
+        DevStackSpec.log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
 
 
         cleanupContainerNames = [

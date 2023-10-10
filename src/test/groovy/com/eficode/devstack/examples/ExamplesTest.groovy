@@ -13,11 +13,11 @@ class ExamplesTest extends DevStackSpec{
     @Shared
     File projectRoot = new File(".").canonicalFile
     @Shared
-    File jsmLicenseFile = new File(projectRoot.path + "/resources/jira/licenses/jsm.license")
+    File jsmLicenseFile = new File(System.getProperty("user.home") + "/.licenses/jira/jsm.license")
     @Shared
-    File bitbucketLicenseFile = new File(projectRoot.path + "/resources/bitbucket/licenses/bitbucketLicense")
+    File bitbucketLicenseFile = new File(System.getProperty("user.home") + "/.licenses/bitbucket/bitbucket.license")
     @Shared
-    File srLicenseFile = new File(projectRoot.path + "/resources/jira/licenses/scriptrunnerForJira.license")
+    File srLicenseFile = new File(System.getProperty("user.home") + "/.licenses/jira/sr.license")
 
 
     def setupSpec() {
@@ -27,7 +27,7 @@ class ExamplesTest extends DevStackSpec{
         dockerRemoteHost = ""
 
 
-        log = LoggerFactory.getLogger(ExamplesTest.class)
+        DevStackSpec.log = LoggerFactory.getLogger(ExamplesTest.class)
 
         cleanupContainerNames = ["groovy-container", "jira.local", "bitbucket.local"]
         cleanupContainerPorts = [8080,7990]

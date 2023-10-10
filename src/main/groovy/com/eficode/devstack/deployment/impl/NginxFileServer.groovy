@@ -79,6 +79,7 @@ class NginxFileServer implements Deployment {
 
     @Override
     boolean setupDeployment() {
+        container.containerDefaultNetworks = [this.deploymentNetworkName]
         return  containers.first().createContainer() != null
     }
 }
