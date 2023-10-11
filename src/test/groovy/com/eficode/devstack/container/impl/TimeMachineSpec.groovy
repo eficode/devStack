@@ -4,6 +4,8 @@ import com.eficode.devstack.DevStackSpec
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.deployment.impl.JsmH2Deployment
 import com.eficode.devstack.util.TimeMachine
+import kong.unirest.HttpResponse
+import kong.unirest.UnirestInstance
 import org.slf4j.LoggerFactory
 
 import java.time.LocalDate
@@ -150,7 +152,9 @@ class TimeMachineSpec extends DevStackSpec {
 
     }
 
-    JsmH2Deployment setupJsm() {
+    JsmH2Deployment setupJsm(boolean useSnapshotIfAvailable = true) {
+
+        log.info("Setting up JSM container")
 
         String jsmLicense = new File(System.getProperty("user.home") + "/.licenses/jira/jsm.license").text
         String srLicense = new File(System.getProperty("user.home") + "/.licenses/jira/sr.license").text
@@ -159,19 +163,79 @@ class TimeMachineSpec extends DevStackSpec {
 
         JsmH2Deployment timeTraveler = new JsmH2Deployment("http://jsmtime.localhost:8060", dockerRemoteHost, dockerCertPath)
         timeTraveler.setJiraLicense(jsmLicense)
-        timeTraveler.stopAndRemoveDeployment()
-        timeTraveler.setupDeployment()
-        assert timeTraveler.jiraRest.installScriptRunner(srLicense, "latest"): "Error installing ScriptRunner in JSM"
-        log.info("\tScriptRunner was installed")
+
+        if (useSnapshotIfAvailable && timeTraveler.jsmContainer.created && timeTraveler.jsmContainer.getSnapshotVolume()) {
+            log.info("\tSnapshot is available, will restore that instead of setting up new JSM")
+            assert timeTraveler.jsmContainer.restoreJiraHomeSnapshot(): "Error resting snapshot for " + timeTraveler.jsmContainer.shortId
+            log.info("\t" * 2 + "Finished restoring JSM snapshot")
+        } else {
+            log.info("\tSetting up new blank JSM container ")
+            timeTraveler.stopAndRemoveDeployment()
+            timeTraveler.setupDeployment()
+            assert timeTraveler.jiraRest.installScriptRunner(srLicense, "latest"): "Error installing ScriptRunner in JSM"
+            log.info("\tScriptRunner was installed")
+            assert timeTraveler.jsmContainer.snapshotJiraHome(): "Error snapshoting new container"
+        }
+
+        assert waitForJiraToBeResponsive(timeTraveler)
+
 
         return timeTraveler
+    }
+
+    boolean waitForJiraToBeResponsive(JsmH2Deployment deployment, long timeoustS = 90) {
+        UnirestInstance jsmUnirest = deployment.jiraRest.getUnirest()
+
+        HttpResponse<Map> response = null
+
+        log.info("\tWaiting for JIRA to become response")
+        long start = System.currentTimeSeconds()
+        while (response == null || response.body?.get("state") != "RUNNING") {
+
+            try {
+
+
+                response = jsmUnirest.get("/status").asObject(Map.class).ifFailure { log.warn("JSM container not yet responsive") }
+
+                if ((start + timeoustS) < System.currentTimeSeconds()) {
+                    log.error("Timed out waiting for JSM to start after ${System.currentTimeSeconds() - start} seconds")
+                    return false
+                }
+            } catch (ignored) {
+            }
+            sleep(2000)
+
+        }
+        jsmUnirest.shutDown()
+        log.debug("\t\tJSM started after ${System.currentTimeSeconds() - start} seconds")
+
+
+        boolean srResponsive = false
+
+        while (!srResponsive) {
+
+            log.warn("SR not yet responsive")
+            try {
+                Map rawResponse = deployment.jiraRest.executeLocalScriptFile("return true")
+                srResponsive = rawResponse.success
+            } catch (ignored){}
+
+            if ((start + timeoustS) < System.currentTimeSeconds()) {
+                log.error("Timed out waiting for JSM to start after ${System.currentTimeSeconds() - start} seconds")
+                return false
+            }
+            sleep(2000)
+        }
+        log.debug("\t\tSR started after ${System.currentTimeSeconds() - start} seconds")
+
+        return response.body.get("state") == "RUNNING" && srResponsive
     }
 
     long getJsmGroovyTime(JsmH2Deployment jsmDeploy) {
 
         Map rawOut = jsmDeploy.jiraRest.executeLocalScriptFile("log.warn(\"EPOCH:\" + new Date().toInstant().epochSecond)")
 
-        assert rawOut.success == true : "There was an error querying for GroovyTime from JSM ScriptRunner"
+        assert rawOut.success == true: "There was an error querying for GroovyTime from JSM ScriptRunner"
         assert (rawOut.log as ArrayList<String>).size() == 1
 
         String rawLogStatement = (rawOut.log as ArrayList<String>).get(0)
@@ -202,22 +266,22 @@ class TimeMachineSpec extends DevStackSpec {
 
 
         then: "Time in the companion should be updated after the change"
-        (getContainerTime(timeTraveler.jsmContainer) - tomorrowS).abs() <= okTimeDiffS
-        log.info("\tTime travel was reflected in the already running companion container")
-        getJsmGroovyTime(timeTraveler)
+        assert (getContainerTime(timeTraveler.jsmContainer) - tomorrowS).abs() <= okTimeDiffS : "The container OS time and destination time travel time differs"
+        log.info("\tTime travel was reflected in the OS of the already running companion container")
+        assert (getJsmGroovyTime(timeTraveler) - tomorrowS).abs() <= okTimeDiffS : "The container Groovy time and destination time travel time differs"
+        log.info("\tTime travel was reflected by Groovy script executed by ScriptRunner")
+        assert (getJsmGroovyTime(timeTraveler) - getContainerTime(timeTraveler.jsmContainer)).abs() <= okTimeDiffS : "The container Groovy time and OS time differs"
+        log.info("\tCompanion container OS and Groovy time is the same")
+
 
         when: "When starting a new companion container, after having travelled forward in time"
-        timeTraveler.stopAndRemoveDeployment()
         timeTraveler = setupJsm()
         assert timeTraveler.jsmContainer.running: "Error starting time traveler container"
 
         then: "The time in the new container should also be in the future"
-        assert (getContainerTime(timeTraveler.jsmContainer) - tomorrowS).abs() <= (okTimeDiffS * 5)
-
-
-
-        cleanup:
-        timeTraveler.stopAndRemoveDeployment()
+        assert (getContainerTime(timeTraveler.jsmContainer) - tomorrowS).abs() <= 120
+        assert (getJsmGroovyTime(timeTraveler) - getContainerTime(timeTraveler.jsmContainer)).abs() <= okTimeDiffS : "The container Groovy time and OS time differs"
+        log.info("\tCompanion container OS and Groovy time is the same")
 
 
     }

@@ -140,6 +140,21 @@ class JsmContainer implements Container {
 
     }
 
+    Volume getSnapshotVolume(String snapshotName = "") {
+        snapshotName = snapshotName ?: shortId + "-clone"
+
+        ArrayList<Volume> volumes = dockerClient.getVolumesWithName(snapshotName)
+
+        if (volumes.size() == 1) {
+            return volumes.first()
+        }else if (volumes.isEmpty()) {
+            return null
+        }else {
+            throw new InputMismatchException("Error finding snapshot volume:" + snapshotName)
+        }
+
+    }
+
 
     /**
      * Snapshot JIRA home directory

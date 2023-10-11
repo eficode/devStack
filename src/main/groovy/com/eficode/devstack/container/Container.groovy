@@ -235,11 +235,11 @@ trait Container {
      * @return
      */
     String getShortId() {
-        return containerId.substring(0,12)
+        return getContainerId().substring(0,12)
     }
 
     String getId() {
-        return containerId
+        return getContainerId()
     }
 
     Container getSelf() {
