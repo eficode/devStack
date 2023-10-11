@@ -1,6 +1,7 @@
 package com.eficode.devstack.util
 
 import com.eficode.devstack.container.Container
+import com.eficode.shaded.kong.unirest.Empty
 import de.gesellix.docker.remote.api.ContainerCreateRequest
 import kong.unirest.HttpResponse
 import kong.unirest.JsonResponse
@@ -38,8 +39,6 @@ class TimeMachine implements Container {
     String containerImage = "alpine"
     String containerImageTag = "latest"
     String defaultShell = "/bin/sh"
-    UnirestInstance unirest = Unirest.spawnInstance()
-
     TimeMachine(String dockerHost = "", String dockerCertPath = "") {
         if (dockerHost && dockerCertPath) {
             assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
@@ -171,11 +170,11 @@ class TimeMachine implements Container {
     }
 
     static long getExternalTime(){
-        HttpResponse<JsonResponse> response = Unirest.get("http://google.com").asJson() as HttpResponse<JsonResponse>
+        HttpResponse<Empty> response = Unirest.get("http://google.com").asEmpty() as HttpResponse<Empty>
         String dateString = response.headers["Date"].first()
-        def dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z")
+        SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z")
         Date date = dateFormat.parse(dateString)
-        return date.time / 1000
+        return (date.time / 1000).round()
     }
 
     /**
