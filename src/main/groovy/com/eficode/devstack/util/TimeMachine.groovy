@@ -53,7 +53,7 @@ class TimeMachine implements Container {
      * @param dockerCertPath optional
      * @return true after verifying success
      */
-    static boolean travelToNow(String dockerHost = "", String dockerCertPath = "", boolean useExternalSource) {
+    static boolean travelToNow(String dockerHost = "", String dockerCertPath = "", boolean useExternalSource = true) {
         if(useExternalSource){
             long timeFromExternal = getExternalTime()
             return setTime(timeFromExternal, dockerHost, dockerCertPath)

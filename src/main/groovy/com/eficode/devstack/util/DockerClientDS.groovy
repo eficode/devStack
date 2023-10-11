@@ -41,12 +41,13 @@ class DockerClientDS extends DockerClientImpl {
     }
 
     DockerClientDS(DockerClientConfig dockerClientConfig, Proxy proxy = NO_PROXY) {
-       super(dockerClientConfig, proxy)
+        super(dockerClientConfig, proxy)
     }
 
     String getHost() {
         return this.getEnv().dockerHost
     }
+
     String getCertPath() {
         return this.getEnv().certPath
     }
@@ -111,6 +112,58 @@ class DockerClientDS extends DockerClientImpl {
 
     }
 
+
+    /**
+     * Overwrites the content of destinationVolumeName with files from srcVolumeName
+     * Volumes must not be attached to any currently running container
+     * @param srcVolumeName
+     * @param destinationVolumeName
+     * @return true on success
+     */
+    boolean overwriteVolume(String srcVolumeName, String destinationVolumeName) {
+        ArrayList<Volume>srcVolumes = getVolumesWithName(srcVolumeName)
+        assert srcVolumes.size() == 1 : "Error identifying src volume with name:" + srcVolumeName
+
+        ArrayList<Volume>destVolumes = getVolumesWithName(destinationVolumeName)
+        assert destVolumes.size() == 1 : "Error identifying destination volume with name:" + destinationVolumeName
+
+
+        return overwriteVolume(srcVolumes.first(), destVolumes.first())
+    }
+
+    /**
+     * Overwrites the content of destinationVolume with files from srcVolume
+     * Volumes must not be attached to any currently running container
+     * @param srcVolume
+     * @param destinationVolume
+     * @return true on success
+     */
+    boolean overwriteVolume(Volume srcVolume, Volume destinationVolume) {
+
+
+        assert getContainersUsingVolume(srcVolume).findAll { it.state == "running" }.id.isEmpty(): "Source volume is currently connected to a running container"
+        assert getContainersUsingVolume(destinationVolume).findAll { it.state == "running" }.id.isEmpty(): "Destination volume is currently connected to a running container"
+
+
+        UbuntuContainer ubuntuC = new UbuntuContainer(host, certPath)
+
+        ubuntuC.prepareVolumeMount(srcVolume.name, "/srcVolume")
+        ubuntuC.prepareVolumeMount(destinationVolume.name, "/destVolume", false)
+
+        ubuntuC.createSleepyContainer()
+        ubuntuC.startContainer()
+        ArrayList<String> cmdOut = ubuntuC.runBashCommandInContainer("find /destVolume/ -mindepth 1 -delete && echo status: \$?")
+        assert cmdOut.any { it == "status: 0" }: "Error deleting existing data in destination volume"
+
+        cmdOut = ubuntuC.runBashCommandInContainer("cp -av /srcVolume/* /destVolume/ && echo status: \$?")
+        ubuntuC.stopAndRemoveContainer()
+        assert cmdOut.any { it == "status: 0" }: "Error copying data to cloned volume"
+        log.info("\tSuccessfully copied data to volume")
+
+        return true
+
+
+    }
 
     /**
      * Clone a volume
@@ -183,7 +236,6 @@ class DockerClientDS extends DockerClientImpl {
     EngineResponseContent<IdResponse> exec(String containerId, List<String> command, StreamCallback<Frame> callback, Duration timeout, ExecConfig execConfig) {
 
         log.info("docker exec '${containerId}' '${command}'")
-
 
 
         EngineResponseContent<IdResponse> execCreateResult = createExec(containerId, execConfig)

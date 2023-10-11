@@ -5,7 +5,6 @@ import com.eficode.devstack.deployment.impl.NginxFileServer
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import kong.unirest.Unirest
 import org.slf4j.LoggerFactory
-import spock.lang.Shared
 
 class NginxContainerTest extends DevStackSpec {
 
@@ -118,7 +117,7 @@ class NginxContainerTest extends DevStackSpec {
         nginxC.bindHtmlRoot(localNginxRoot, false)
 
         then:
-        nginxC.mounts.size() == 1
+        nginxC.preparedMounts.size() == 1
 
         when: "After creating the container, the inspect result should confirm the mount"
         String containerId = nginxC.createContainer()

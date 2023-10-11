@@ -14,6 +14,7 @@ import de.gesellix.docker.remote.api.EndpointSettings
 import de.gesellix.docker.remote.api.ExecConfig
 import de.gesellix.docker.remote.api.HostConfig
 import de.gesellix.docker.remote.api.Mount
+import de.gesellix.docker.remote.api.MountPoint
 import de.gesellix.docker.remote.api.Network
 import de.gesellix.docker.remote.api.NetworkCreateRequest
 import de.gesellix.docker.remote.api.PortBinding
@@ -51,7 +52,7 @@ trait Container {
     ArrayList<String> customEnvVar = []
     String defaultShell = "/bin/bash"
     String containerId
-    ArrayList<Mount> mounts = []
+    ArrayList<Mount> preparedMounts = [] //Mounts that will be added at creation
 
 
     /**
@@ -69,8 +70,8 @@ trait Container {
             m.type = Mount.Type.Bind
         }
 
-        if (!self.mounts.find { it.source == sourceAbs && it.target == target }) {
-            self.mounts.add(newMount)
+        if (!self.preparedMounts.find { it.source == sourceAbs && it.target == target }) {
+            self.preparedMounts.add(newMount)
         }
     }
 
@@ -89,11 +90,20 @@ trait Container {
             m.type = Mount.Type.Volume
         }
 
-        if (!self.mounts.find { it.source == volumeName && it.target == target }) {
-            self.mounts.add(newMount)
+        if (!self.preparedMounts.find { it.source == volumeName && it.target == target }) {
+            self.preparedMounts.add(newMount)
         }
     }
 
+    /**
+     * Get MountPoints currently attached to container
+     * @return
+     */
+    ArrayList<MountPoint> getMounts() {
+
+        ContainerInspectResponse response = inspectContainer()
+        return response.mounts
+    }
 
     ContainerCreateRequest setupContainerCreateRequest() {
 
@@ -110,7 +120,7 @@ trait Container {
                 if (self.containerMainPort) {
                     h.portBindings = [(self.containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (self.containerMainPort))]]
                 }
-                h.mounts = self.mounts
+                h.mounts = self.preparedMounts
             }
             c.hostname = self.containerName
             c.env = self.customEnvVar
@@ -218,6 +228,14 @@ trait Container {
             return false
         }
 
+    }
+
+    /**
+     * Returnes the common short form of the container ID
+     * @return
+     */
+    String getShortId() {
+        return containerId.substring(0,12)
     }
 
     String getId() {
