@@ -366,14 +366,18 @@ trait Container {
 
     }
 
-    boolean stopContainer() {
+    boolean stopContainer(Integer timeoutS = 15) {
         log.info("Stopping container:" + self.containerId)
-        running ? dockerClient.stop(self.containerId, 15) : ""
+        long start = System.currentTimeSeconds()
+        running ? dockerClient.stop(self.containerId, timeoutS) : ""
+
         if (running) {
             log.warn("\tFailed to stop container" + self.containerId)
+            log.warn("Gave up waiting to shutdown ${shortId} after ${System.currentTimeSeconds() - start} seconds")
             return false
         } else {
             log.info("\tContainer stopped")
+            log.debug("\t\tContainer ${shortId} stopped after ${System.currentTimeSeconds() - start} seconds")
             return true
         }
     }

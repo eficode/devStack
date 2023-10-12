@@ -164,7 +164,9 @@ class JsmContainer implements Container {
      */
     Volume snapshotJiraHome(String snapshotName = "") {
         boolean wasRunning = running
-        stopContainer()
+
+        stopContainer(120)
+
 
         snapshotName = snapshotName ?: shortId + "-clone"
 

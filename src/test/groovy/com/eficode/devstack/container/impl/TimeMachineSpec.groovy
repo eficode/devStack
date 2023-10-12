@@ -1,5 +1,6 @@
 package com.eficode.devstack.container.impl
 
+import com.eficode.atlassian.jiraInstanceManager.beans.MarketplaceApp
 import com.eficode.devstack.DevStackSpec
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.deployment.impl.JsmH2Deployment
@@ -161,9 +162,17 @@ class TimeMachineSpec extends DevStackSpec {
         assert jsmLicense: "Error finding JSM license"
         assert srLicense: "Error finding script runner license"
 
+
+        MarketplaceApp srMarketApp = MarketplaceApp.searchMarketplace("Adaptavist ScriptRunner for JIRA", MarketplaceApp.Hosting.Datacenter).find { it.key == "com.onresolve.jira.groovy.groovyrunner" }
+        MarketplaceApp.Version srVersion = srMarketApp?.getVersion("latest", MarketplaceApp.Hosting.Datacenter)
+
+
         JsmH2Deployment timeTraveler = new JsmH2Deployment("http://jsmtime.localhost:8060", dockerRemoteHost, dockerCertPath)
+        timeTraveler.appsToInstall.put(srVersion, srLicense)
         timeTraveler.setJiraLicense(jsmLicense)
 
+        timeTraveler.setupDeployment(true, true)
+        /*
         if (useSnapshotIfAvailable && timeTraveler.jsmContainer.created && timeTraveler.jsmContainer.getSnapshotVolume()) {
             log.info("\tSnapshot is available, will restore that instead of setting up new JSM")
             assert timeTraveler.jsmContainer.restoreJiraHomeSnapshot(): "Error resting snapshot for " + timeTraveler.jsmContainer.shortId
@@ -176,6 +185,8 @@ class TimeMachineSpec extends DevStackSpec {
             log.info("\tScriptRunner was installed")
             assert timeTraveler.jsmContainer.snapshotJiraHome(): "Error snapshoting new container"
         }
+
+         */
 
         assert waitForJiraToBeResponsive(timeTraveler)
 
@@ -218,7 +229,8 @@ class TimeMachineSpec extends DevStackSpec {
             try {
                 Map rawResponse = deployment.jiraRest.executeLocalScriptFile("return true")
                 srResponsive = rawResponse.success
-            } catch (ignored){}
+            } catch (ignored) {
+            }
 
             if ((start + timeoustS) < System.currentTimeSeconds()) {
                 log.error("Timed out waiting for JSM to start after ${System.currentTimeSeconds() - start} seconds")
@@ -245,7 +257,7 @@ class TimeMachineSpec extends DevStackSpec {
 
     }
 
-    def "Verify companion JSM containers created before and after time travel are affected by the changes"() {
+    def "Verify companion JSM containers created before and after time travel are affected by the changes"(LocalDateTime travelToTime) {
 
         setup:
         assert restoreDockerEngineTime(): "Error restoring docker engine time"
@@ -257,20 +269,20 @@ class TimeMachineSpec extends DevStackSpec {
         assert (getContainerTime(timeTraveler.jsmContainer) - TimeMachine.getExternalTime()).abs() <= okTimeDiffS
         log.info("\tTime in the TimeTraveler container was realTime before test")
 
-        when: "Traveling forward in time, after having an already running companion container"
-        LocalDateTime tomorrow = LocalDateTime.now().plusDays(1)
-        long tomorrowS = getEpochS(tomorrow)
-        log.info("\tWill travel to tomorrow:" + tomorrow + " ($tomorrowS)")
-        assert TimeMachine.setLocalDateTime(tomorrow, dockerRemoteHost, dockerCertPath): "TimeMachine container errord when traveling to $tomorrow"
+        when: "Traveling in time, after having an already running companion container"
+
+        long travelToTimeS = getEpochS(travelToTime)
+        log.info("\tWill travel to:" + travelToTime + " ($travelToTimeS)")
+        assert TimeMachine.setLocalDateTime(travelToTime, dockerRemoteHost, dockerCertPath): "TimeMachine container errord when traveling to $travelToTime"
         log.info("\tTime was updated using the TimeMachine")
 
 
         then: "Time in the companion should be updated after the change"
-        assert (getContainerTime(timeTraveler.jsmContainer) - tomorrowS).abs() <= okTimeDiffS : "The container OS time and destination time travel time differs"
+        assert (getContainerTime(timeTraveler.jsmContainer) - travelToTimeS).abs() <= okTimeDiffS: "The container OS time and destination time travel time differs"
         log.info("\tTime travel was reflected in the OS of the already running companion container")
-        assert (getJsmGroovyTime(timeTraveler) - tomorrowS).abs() <= okTimeDiffS : "The container Groovy time and destination time travel time differs"
+        assert (getJsmGroovyTime(timeTraveler) - travelToTimeS).abs() <= okTimeDiffS: "The container Groovy time and destination time travel time differs"
         log.info("\tTime travel was reflected by Groovy script executed by ScriptRunner")
-        assert (getJsmGroovyTime(timeTraveler) - getContainerTime(timeTraveler.jsmContainer)).abs() <= okTimeDiffS : "The container Groovy time and OS time differs"
+        assert (getJsmGroovyTime(timeTraveler) - getContainerTime(timeTraveler.jsmContainer)).abs() <= okTimeDiffS: "The container Groovy time and OS time differs"
         log.info("\tCompanion container OS and Groovy time is the same")
 
 
@@ -279,10 +291,14 @@ class TimeMachineSpec extends DevStackSpec {
         assert timeTraveler.jsmContainer.running: "Error starting time traveler container"
 
         then: "The time in the new container should also be in the future"
-        assert (getContainerTime(timeTraveler.jsmContainer) - tomorrowS).abs() <= 120
-        assert (getJsmGroovyTime(timeTraveler) - getContainerTime(timeTraveler.jsmContainer)).abs() <= okTimeDiffS : "The container Groovy time and OS time differs"
+        assert (getContainerTime(timeTraveler.jsmContainer) - travelToTimeS).abs() <= 120
+        assert (getJsmGroovyTime(timeTraveler) - getContainerTime(timeTraveler.jsmContainer)).abs() <= okTimeDiffS: "The container Groovy time and OS time differs"
         log.info("\tCompanion container OS and Groovy time is the same")
 
+        where:
+        travelToTime | _
+        LocalDateTime.now().plusDays(1)  | _
+        LocalDateTime.now().minusDays(1) | _
 
     }
 
