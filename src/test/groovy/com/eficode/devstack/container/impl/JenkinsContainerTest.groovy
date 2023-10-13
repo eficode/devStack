@@ -4,7 +4,6 @@ import com.eficode.devstack.DevStackSpec
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.core.Frame
 import de.gesellix.docker.remote.api.core.StreamCallback
-import kong.unirest.HttpResponse
 import kong.unirest.Unirest
 import kong.unirest.UnirestInstance
 import org.slf4j.LoggerFactory
@@ -18,7 +17,7 @@ class JenkinsContainerTest extends DevStackSpec{
         dockerRemoteHost = "https://docker.domain.se:2376"
         dockerCertPath = "~/.docker/"
 
-        log = LoggerFactory.getLogger(JenkinsContainerTest.class)
+        DevStackSpec.log = LoggerFactory.getLogger(JenkinsContainerTest.class)
 
 
         cleanupContainerNames = ["jenkins.domain.se", "jenkins-agent.domain.se", "localhost"]
@@ -45,7 +44,7 @@ class JenkinsContainerTest extends DevStackSpec{
         long start = System.currentTimeMillis()
         //String baseUrl = "http://" + jc.containerName + ":" + jc.containerMainPort + "/login"
 
-        log.info("Waiting for Jenkins WEB-UI to become responsive")
+        DevStackSpec.log.info("Waiting for Jenkins WEB-UI to become responsive")
 
 
 
@@ -64,19 +63,19 @@ class JenkinsContainerTest extends DevStackSpec{
                 try {
                     int status = unirestInstance.get(baseUrl + "/login").socketTimeout(5000).connectTimeout(10000).asEmpty()?.status
                     if (status == 200){
-                        log.info("\tJenkins is ready and responded with HTTP status:" + status + " after " + ((System.currentTimeMillis() - start)/1000).round() + "s")
+                        DevStackSpec.log.info("\tJenkins is ready and responded with HTTP status:" + status + " after " + ((System.currentTimeMillis() - start)/1000).round() + "s")
                         break
                     }
                     else {
-                        log.info("\tJenkins responded with HTTP status:" + status)
+                        DevStackSpec.log.info("\tJenkins responded with HTTP status:" + status)
                         sleep(2000)
                     }
                 }catch(ex) {
-                    log.warn("\tError accessing Jenkins WEB-UI:" + ex.message)
+                    DevStackSpec.log.warn("\tError accessing Jenkins WEB-UI:" + ex.message)
                     sleep(2000)
                 }
             }else {
-                log.error("\tTimed our waiting for Jenkins after:" + ((System.currentTimeMillis() - start)/1000).round() + "s")
+                DevStackSpec.log.error("\tTimed our waiting for Jenkins after:" + ((System.currentTimeMillis() - start)/1000).round() + "s")
                 throw new TimeoutException("Error waiting for Jenkins WEB to become available:" + baseUrl)
             }
 

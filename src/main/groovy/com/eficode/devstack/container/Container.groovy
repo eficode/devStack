@@ -13,8 +13,8 @@ import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.EndpointSettings
 import de.gesellix.docker.remote.api.ExecConfig
 import de.gesellix.docker.remote.api.HostConfig
-import de.gesellix.docker.remote.api.IdResponse
 import de.gesellix.docker.remote.api.Mount
+import de.gesellix.docker.remote.api.MountPoint
 import de.gesellix.docker.remote.api.Network
 import de.gesellix.docker.remote.api.NetworkCreateRequest
 import de.gesellix.docker.remote.api.PortBinding
@@ -52,7 +52,7 @@ trait Container {
     ArrayList<String> customEnvVar = []
     String defaultShell = "/bin/bash"
     String containerId
-    ArrayList<Mount> mounts = []
+    ArrayList<Mount> preparedMounts = [] //Mounts that will be added at creation
 
 
     /**
@@ -70,11 +70,40 @@ trait Container {
             m.type = Mount.Type.Bind
         }
 
-        if (!self.mounts.find { it.source == sourceAbs && it.target == target }) {
-            self.mounts.add(newMount)
+        if (!self.preparedMounts.find { it.source == sourceAbs && it.target == target }) {
+            self.preparedMounts.add(newMount)
         }
     }
 
+    /**
+     * Prepare mounting of an existing or new volume
+     * @param volumeName The name of the volume to create, or an existing one to mount
+     * @param target Where to mount it in the container
+     * @param readOnly If it should be read only or not
+     */
+    void prepareVolumeMount(String volumeName, String target, boolean readOnly = true) {
+
+        Mount newMount = new Mount().tap { m ->
+            m.source = volumeName
+            m.target = target
+            m.readOnly = readOnly
+            m.type = Mount.Type.Volume
+        }
+
+        if (!self.preparedMounts.find { it.source == volumeName && it.target == target }) {
+            self.preparedMounts.add(newMount)
+        }
+    }
+
+    /**
+     * Get MountPoints currently attached to container
+     * @return
+     */
+    ArrayList<MountPoint> getMounts() {
+
+        ContainerInspectResponse response = inspectContainer()
+        return response.mounts
+    }
 
     ContainerCreateRequest setupContainerCreateRequest() {
 
@@ -91,7 +120,7 @@ trait Container {
                 if (self.containerMainPort) {
                     h.portBindings = [(self.containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (self.containerMainPort))]]
                 }
-                h.mounts = self.mounts
+                h.mounts = self.preparedMounts
             }
             c.hostname = self.containerName
             c.env = self.customEnvVar
@@ -124,7 +153,7 @@ trait Container {
         ContainerCreateRequest containerCreateRequest = setupContainerCreateRequest()
 
         if (cmd.size()) {
-            containerCreateRequest.cmd = cmd.collect {it.toString()}
+            containerCreateRequest.cmd = cmd.collect { it.toString() }
         }
 
         if (entrypoint.size()) {
@@ -201,8 +230,16 @@ trait Container {
 
     }
 
+    /**
+     * Returnes the common short form of the container ID
+     * @return
+     */
+    String getShortId() {
+        return getContainerId().substring(0,12)
+    }
+
     String getId() {
-        return containerId
+        return getContainerId()
     }
 
     Container getSelf() {
@@ -329,29 +366,33 @@ trait Container {
 
     }
 
-    boolean stopContainer() {
+    boolean stopContainer(Integer timeoutS = 15) {
         log.info("Stopping container:" + self.containerId)
-        running ? dockerClient.stop(self.containerId, 15) : ""
+        long start = System.currentTimeSeconds()
+        running ? dockerClient.stop(self.containerId, timeoutS) : ""
+
         if (running) {
             log.warn("\tFailed to stop container" + self.containerId)
+            log.warn("Gave up waiting to shutdown ${shortId} after ${System.currentTimeSeconds() - start} seconds")
             return false
         } else {
             log.info("\tContainer stopped")
+            log.debug("\t\tContainer ${shortId} stopped after ${System.currentTimeSeconds() - start} seconds")
             return true
         }
     }
 
 
-    File createTar(ArrayList<String> filePaths, String outputPath) {
+    File createTar(ArrayList<String> filePaths, String outputPath, ArrayList<String> ignorePaths = []) {
 
 
         log.info("Creating tar file:" + outputPath)
         log.debug("\tUsing source paths:")
         filePaths.each { log.debug("\t\t$it") }
 
-
         File outputFile = new File(outputPath)
         TarArchiveOutputStream tarArchive = new TarArchiveOutputStream(Files.newOutputStream(outputFile.toPath()))
+        tarArchive.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX)
 
         log.info("\tProcessing files")
         filePaths.each { filePath ->
@@ -368,28 +409,40 @@ trait Container {
 
                     String path = ResourceGroovyMethods.relativePath(newEntryFile, subFile)
                     log.trace("\t" * 4 + "Processing sub file:" + path)
-                    TarArchiveEntry entry = new TarArchiveEntry(subFile, path)
-                    entry.setSize(subFile.size())
-                    tarArchive.putArchiveEntry(entry)
-                    tarArchive.write(subFile.bytes)
-                    tarArchive.closeArchiveEntry()
-                    log.trace("\t" * 5 + "Added to archive")
+                    if (ignorePaths.any { subFile.absolutePath.matches(it) }) {
+                        log.trace("\t" * 5 + "File matches a path that is to be ignored, will not process further")
+                    } else {
+                        TarArchiveEntry entry = new TarArchiveEntry(subFile, path)
+                        entry.setSize(subFile.size())
+                        tarArchive.putArchiveEntry(entry)
+                        tarArchive.write(subFile.bytes)
+                        tarArchive.closeArchiveEntry()
+                        log.trace("\t" * 5 + "Added to archive")
+                    }
+
+
                 }
             } else {
                 log.trace("\t" * 4 + "Processing file:" + newEntryFile.name)
-                TarArchiveEntry entry = new TarArchiveEntry(newEntryFile, newEntryFile.name)
-                entry.setSize(newEntryFile.size())
-                tarArchive.putArchiveEntry(entry)
-                tarArchive.write(newEntryFile.bytes)
-                tarArchive.closeArchiveEntry()
-                log.trace("\t" * 5 + "Added to archive")
 
+                if (ignorePaths.any { newEntryFile.absolutePath.matches(it) }) {
+                    log.trace("\t" * 5 + "File matches a path that is to be ignored, will not process further")
+                }else {
+                    TarArchiveEntry entry = new TarArchiveEntry(newEntryFile, newEntryFile.name)
+                    entry.setSize(newEntryFile.size())
+                    tarArchive.putArchiveEntry(entry)
+                    tarArchive.write(newEntryFile.bytes)
+                    tarArchive.closeArchiveEntry()
+                    log.trace("\t" * 5 + "Added to archive")
+                }
             }
 
 
         }
 
         tarArchive.finish()
+        log.info("\tFinished creating TAR file:" + outputFile.absolutePath)
+        log.debug("\t\t" + (outputFile.size() / (1024 * 1024)).round() + "MB")
 
         return outputFile
 
@@ -426,6 +479,15 @@ trait Container {
         }
 
         return outFiles
+    }
+
+
+    /**
+     * Gets the home path for the containers default user
+     * @return ex: /home/user
+     */
+    String getHomePath() {
+        runBashCommandInContainer("pwd").find {true}
     }
 
 
@@ -637,12 +699,12 @@ trait Container {
     boolean replaceFileInContainer(String content, String filePath, boolean verify = false) {
         ArrayList<String> out = runBashCommandInContainer("cat > $filePath <<- 'EOF'\n" + content + "\nEOF")
 
-        assert out.isEmpty() : "Unexpected output when replacing file $filePath: " + out.join("\n")
+        assert out.isEmpty(): "Unexpected output when replacing file $filePath: " + out.join("\n")
 
         if (verify) {
-            ArrayList<String>rawOut = runBashCommandInContainer("cat " + filePath)
+            ArrayList<String> rawOut = runBashCommandInContainer("cat " + filePath)
             String readOut = rawOut.join()
-            assert readOut.trim() == content.trim() : "Error when verifying that the file $filePath was replaced"
+            assert readOut.trim() == content.trim(): "Error when verifying that the file $filePath was replaced"
             return true
         }
 
@@ -672,10 +734,18 @@ trait Container {
 
     }
 
-    boolean copyFileToContainer(String srcFilePath, String destinationDirectory) {
+    /**
+     * Creates a temporary tar, copies it to the container and extracts it there
+     * @param srcFilePath Local path to copy, will find directories/files recursively
+     * @param destinationDirectory The destination path in the container, must already exist and be absolut
+     * @param ignorePaths If these regex patterns matches the path/name of a file it wont be copied over.
+     *          ex: [".*\\.git.*"]
+     * @return true on success
+     */
+    boolean copyFileToContainer(String srcFilePath, String destinationDirectory, ArrayList<String> ignorePaths = []) {
 
 
-        File tarFile = createTar([srcFilePath], Files.createTempFile("docker_upload", ".tar").toString())
+        File tarFile = createTar([srcFilePath], Files.createTempFile("docker_upload", ".tar").toString(), ignorePaths)
         dockerClient.putArchive(self.containerId, destinationDirectory, tarFile.newDataInputStream())
 
         return tarFile.delete()
@@ -684,6 +754,8 @@ trait Container {
 
     static class ContainerCallback<T> implements StreamCallback<T> {
 
+
+        Logger log = LoggerFactory.getLogger(ContainerCallback.class)
         ArrayList<String> output = []
 
         @Override
@@ -693,6 +765,7 @@ trait Container {
             } else {
                 output.add(o.toString())
             }
+            log.debug(output.last())
 
         }
     }
@@ -759,7 +832,6 @@ trait Container {
     }
 
 
-
     /**
      * Creates a temporary container, runs a command, exits and removes container
      * @param container a container object that hasnt yet been created
@@ -774,7 +846,7 @@ trait Container {
      * @param dockerCertPath
      * @return An array of the container logs, or just an array containing container id if timeoutMs == 0
      */
-    static ArrayList<String> runCmdAndRm( ArrayList<String> cmd, long timeoutMs, ArrayList<Map> mounts = [], String dockerHost = "", String dockerCertPath = "") {
+    static ArrayList<String> runCmdAndRm(ArrayList<String> cmd, long timeoutMs, ArrayList<Map> mounts = [], String dockerHost = "", String dockerCertPath = "") {
 
 
         Container container = this.getConstructor(String, String).newInstance(dockerHost, dockerCertPath)
@@ -782,10 +854,8 @@ trait Container {
         Logger log = LoggerFactory.getLogger(this.class)
 
 
-
         log.info("Creating a $container.class.simpleName and running:")
         log.info("\tCmd:" + cmd)
-
 
 
         try {
@@ -821,13 +891,12 @@ trait Container {
             log.info("\tContainer finisehd or timed out after ${System.currentTimeMillis() - start}ms")
 
             if (container.running) {
-                log.info("\t"*2 + "Stopping container forcefully.")
+                log.info("\t" * 2 + "Stopping container forcefully.")
                 ArrayList<String> containerOut = container.containerLogs
                 assert container.stopAndRemoveContainer(1): "Error stopping and removing CMD container after it timed out"
 
                 throw new TimeoutException("CMD container timed out, was forcefully stopped and removed. Container logs:" + containerOut?.join("\n"))
             }
-
 
 
             ArrayList<String> containerOut = container.containerLogs
@@ -843,8 +912,8 @@ trait Container {
 
             try {
                 container.stopAndRemoveContainer(1)
-            } catch (ignored){}
-
+            } catch (ignored) {
+            }
 
 
             throw ex

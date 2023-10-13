@@ -5,7 +5,6 @@ import com.eficode.devstack.deployment.impl.NginxFileServer
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import kong.unirest.Unirest
 import org.slf4j.LoggerFactory
-import spock.lang.Shared
 
 class NginxContainerTest extends DevStackSpec {
 
@@ -16,7 +15,7 @@ class NginxContainerTest extends DevStackSpec {
         dockerCertPath = "~/.docker/"
 
 
-        log = LoggerFactory.getLogger(this.class)
+        DevStackSpec.log = LoggerFactory.getLogger(this.class)
 
         cleanupContainerNames = ["Nginx", "Nginx-File-Server"]
         cleanupContainerPorts = [80]
@@ -108,8 +107,8 @@ class NginxContainerTest extends DevStackSpec {
 
         setup:
         String localNginxRoot = "/tmp/"
-        log.info("Testing setting nginx root dir")
-        log.info("\tWill use dir:" + localNginxRoot)
+        DevStackSpec.log.info("Testing setting nginx root dir")
+        DevStackSpec.log.info("\tWill use dir:" + localNginxRoot)
 
         NginxContainer nginxC = new NginxContainer(dockerHost, certPath)
         //stopAndRemoveContainer([nginxC.containerName])
@@ -118,18 +117,18 @@ class NginxContainerTest extends DevStackSpec {
         nginxC.bindHtmlRoot(localNginxRoot, false)
 
         then:
-        nginxC.mounts.size() == 1
+        nginxC.preparedMounts.size() == 1
 
         when: "After creating the container, the inspect result should confirm the mount"
         String containerId = nginxC.createContainer()
-        log.info("\tCreated container:" + containerId)
+        DevStackSpec.log.info("\tCreated container:" + containerId)
         assert nginxC.startContainer(): "Error starting container"
         ContainerInspectResponse inspectResponse = dockerClient.inspectContainer(nginxC.id).getContent()
-        log.info("\tContainer created")
+        DevStackSpec.log.info("\tContainer created")
 
         then:
         inspectResponse.hostConfig.mounts.find { it.source == localNginxRoot }
-        log.info("\tDocker API confirms mount was created")
+        DevStackSpec.log.info("\tDocker API confirms mount was created")
 
         when: "Creating a file in the mounted dir"
         ArrayList<String> cmdOutput = nginxC.runBashCommandInContainer("mkdir -p /usr/share/nginx/html/nginxTest && touch /usr/share/nginx/html/nginxTest/a.file && echo status: \$?")

@@ -2,12 +2,12 @@ package com.eficode.devstack.container.impl
 
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.util.ImageBuilder
-import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.remote.api.ContainerCreateRequest
 import de.gesellix.docker.remote.api.HostConfig
 import de.gesellix.docker.remote.api.ImageSummary
-import de.gesellix.docker.remote.api.NetworkingConfig
+import de.gesellix.docker.remote.api.MountPoint
 import de.gesellix.docker.remote.api.PortBinding
+import de.gesellix.docker.remote.api.Volume
 import kong.unirest.HttpResponse
 import kong.unirest.JsonResponse
 import kong.unirest.Unirest
@@ -98,7 +98,7 @@ class JsmContainer implements Container {
                 }
 
 
-                h.mounts = this.mounts
+                h.mounts = this.preparedMounts
             }
 
 
@@ -109,6 +109,103 @@ class JsmContainer implements Container {
 
     }
 
+
+    /**
+     * Returnes the mount point used for JIRA Home
+     * @return
+     */
+    MountPoint getJiraHomeMountPoint() {
+        return getMounts().find {it.destination == "/var/atlassian/application-data/jira"}
+    }
+
+
+    /**
+     * Restores JIRA home using a previoulsy made Snapshot/volume
+     * NOTE container will be stopped (and then restarted) if running
+     * @param snapshotName (Optional), defaults to $ShortID-clone but any volume name should work,
+     * @return True on success
+     */
+    boolean restoreJiraHomeSnapshot(String snapshotName = "") {
+
+        boolean wasRunning = running
+        stopContainer()
+        snapshotName = snapshotName ?: shortId + "-clone"
+
+        boolean success =  dockerClient.overwriteVolume(snapshotName, jiraHomeMountPoint.name)
+        if (wasRunning) {
+            startContainer()
+        }
+
+        return success
+
+    }
+
+    Volume getSnapshotVolume(String snapshotName = "") {
+        snapshotName = snapshotName ?: shortId + "-clone"
+
+        ArrayList<Volume> volumes = dockerClient.getVolumesWithName(snapshotName)
+
+        if (volumes.size() == 1) {
+            return volumes.first()
+        }else if (volumes.isEmpty()) {
+            return null
+        }else {
+            throw new InputMismatchException("Error finding snapshot volume:" + snapshotName)
+        }
+
+    }
+
+
+    /**
+     * Snapshot JIRA home directory
+     * JIRA will be stopped if running, and started once snapshot is done
+     * @param snapshotName Name of the snapshot, will be deleted if already exists, will default to shortId + "-clone"
+     * @return the new Volume object
+     */
+    Volume snapshotJiraHome(String snapshotName = "") {
+        boolean wasRunning = running
+
+        stopContainer(120)
+
+
+        snapshotName = snapshotName ?: shortId + "-clone"
+
+        ArrayList<Volume> existingVolumes = dockerClient.getVolumesWithName(snapshotName)
+        existingVolumes.each {existingVolume ->
+            log.debug("\tRemoving existing snapshot volume:" + existingVolume.name)
+            dockerClient.manageVolume.rmVolume(existingVolume.name)
+        }
+
+        Volume newClone = cloneJiraHome(snapshotName)
+
+        if (wasRunning) {
+            startContainer()
+        }
+
+        return newClone
+    }
+
+    /**
+     * Clone JIRA home volume
+     * Container must be stopped
+     * @param newVolumeName must be unique
+     * @param labels, optional labels to add to the new volume
+     * @return
+     */
+    Volume cloneJiraHome(String newVolumeName = "", Map<String, Object> labels = null) {
+
+        newVolumeName = newVolumeName ?: shortId + "-clone"
+
+        labels = labels ?: [
+                srcContainerId : getId(),
+                created : System.currentTimeSeconds()
+        ] as Map
+
+        Volume newVolume = dockerClient.cloneVolume(jiraHomeMountPoint.name, newVolumeName, labels)
+
+        return newVolume
+
+    }
 
     boolean runOnFirstStartup() {
 

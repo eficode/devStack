@@ -19,9 +19,11 @@ import java.util.regex.Matcher
 class DevStackSpec extends Specification {
 
     @Shared
-    String dockerRemoteHost = "https://docker.domain.se:2376"
+    //String dockerRemoteHost = "https://docker.domain.se:2376"
+    String dockerRemoteHost = ""
     @Shared
-    String dockerCertPath = "~/.docker/"
+    //String dockerCertPath = "~/.docker/"
+    String dockerCertPath = ""
 
     @Shared
     DockerClientDS dockerClient

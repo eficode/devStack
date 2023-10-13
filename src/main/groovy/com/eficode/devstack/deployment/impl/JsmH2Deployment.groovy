@@ -1,6 +1,7 @@
 package com.eficode.devstack.deployment.impl
 
 import com.eficode.atlassian.jiraInstanceManager.JiraInstanceManagerRest
+import com.eficode.atlassian.jiraInstanceManager.beans.MarketplaceApp
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.container.impl.JsmContainer
 import com.eficode.devstack.deployment.Deployment
@@ -25,7 +26,7 @@ class JsmH2Deployment implements Deployment{
     Logger log = LoggerFactory.getLogger(this.class)
     JiraInstanceManagerRest jiraRest
     ArrayList<Container> containers = []
-    Map<String,String> appsToInstall = [:]
+    Map<Object,String> appsToInstall = [:] //Key can either be a url string or a MarketplaceApp.Version object
     String jiraLicense
 
     String jiraBaseUrl
@@ -67,12 +68,17 @@ class JsmH2Deployment implements Deployment{
      * @param appsAndLicenses key = App url (from marketplace), value = license string (optional)
      * @return true if no apps where installed, or apps where installed successfully
      */
-    boolean installApps(Map<String,String> appsAndLicenses = appsToInstall) {
+    boolean installApps(Map<Object,String> appsAndLicenses = appsToInstall) {
 
         if (appsAndLicenses) {
             log.info("Installing ${appsAndLicenses.size()} app(s)")
-            appsAndLicenses.each {url, license ->
-                assert jiraRest.installApp(url, license) : "Error installing app:" + url
+            appsAndLicenses.each {app, license ->
+                if ( app instanceof String){
+                    assert jiraRest.installApp(app, license) : "Error installing app from url:" + app
+                }else if (app instanceof MarketplaceApp.Version) {
+                    assert jiraRest.installApp(app.getDownloadUrl(), license) : "Error installing app from url:" + app.getDownloadUrl()
+                }
+
             }
         }
 
@@ -90,6 +96,36 @@ class JsmH2Deployment implements Deployment{
      */
     boolean updateScriptrunnerFiles(Map<String,String>srcDest) {
         jiraRest.updateScriptrunnerFiles(srcDest)
+    }
+
+    /**
+     * A setupDeployment() method that allows to to both create and reuse snapshots of JIRA Home
+     *
+     * @param useSnapshotIfAvailable If a snapshot is available for the container, the container will be stopped and have its
+     * JIRA Home restored from the snapshot and then started again if it was running before
+     * @param snapshotAfterCreation If set to true when a new container is created, a new snapshot will be created after initial setup.
+     * @return true on success
+     */
+    boolean setupDeployment(boolean useSnapshotIfAvailable, boolean snapshotAfterCreation) {
+
+        if (useSnapshotIfAvailable && jsmContainer.created && jsmContainer.getSnapshotVolume()) {
+            log.info("\tSnapshot is available, will restore that instead of setting up new JSM")
+            assert jsmContainer.restoreJiraHomeSnapshot(): "Error resting snapshot for " + jsmContainer.shortId
+            log.info("\t" * 2 + "Finished restoring JSM snapshot")
+            return true
+        } else {
+            log.info("\tNo snapshot available, setting up new blank JSM container ")
+            if (setupDeployment()) {
+                if (snapshotAfterCreation) {
+                    log.info("\tSnapshotting the newly created container")
+                    return jsmContainer.snapshotJiraHome() != null
+                }else {
+                    return true
+                }
+            }else {
+                return false
+            }
+        }
     }
 
     boolean setupDeployment() {

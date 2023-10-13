@@ -2,7 +2,6 @@ package com.eficode.devstack.container.impl
 
 import com.eficode.devstack.container.Container
 import com.eficode.devstack.util.ImageBuilder
-import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.remote.api.ContainerCreateRequest
 import de.gesellix.docker.remote.api.HostConfig
 import de.gesellix.docker.remote.api.ImageSummary
@@ -71,7 +70,7 @@ class BitbucketContainer implements Container {
             c.exposedPorts = [(containerMainPort + "/tcp"): [:]]
             c.hostConfig = new HostConfig().tap { h ->
                 h.portBindings = [(containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (containerMainPort))]]
-                h.mounts = this.mounts
+                h.mounts = this.preparedMounts
             }
             c.hostname = containerName
             c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "SETUP_BASEURL=" + baseUrl, "SERVER_PORT=" + containerMainPort] + customEnvVar

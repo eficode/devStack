@@ -53,6 +53,10 @@
                         <pattern>okhttp3</pattern>
                         <shadedPattern>com.eficode.shaded.okhttp3</shadedPattern>
                     </relocation>
+                    <relocation>
+                        <pattern>kotlinx.coroutines</pattern>
+                        <shadedPattern>com.eficode.shaded.kotlinx.coroutines</shadedPattern>
+                    </relocation>
                 </relocations>
 
                 <!-- NOTE: Any dependencies of the project will not show up in the standalone pom.
