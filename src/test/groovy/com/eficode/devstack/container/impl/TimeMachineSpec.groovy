@@ -194,7 +194,7 @@ class TimeMachineSpec extends DevStackSpec {
         return timeTraveler
     }
 
-    boolean waitForJiraToBeResponsive(JsmH2Deployment deployment, long timeoustS = 90) {
+    boolean waitForJiraToBeResponsive(JsmH2Deployment deployment, long timeOutS = 90) {
         UnirestInstance jsmUnirest = deployment.jiraRest.getUnirest()
 
         HttpResponse<Map> response = null
@@ -208,7 +208,7 @@ class TimeMachineSpec extends DevStackSpec {
 
                 response = jsmUnirest.get("/status").asObject(Map.class).ifFailure { log.warn("JSM container not yet responsive") }
 
-                if ((start + timeoustS) < System.currentTimeSeconds()) {
+                if ((start + timeOutS) < System.currentTimeSeconds()) {
                     log.error("Timed out waiting for JSM to start after ${System.currentTimeSeconds() - start} seconds")
                     return false
                 }
@@ -232,7 +232,7 @@ class TimeMachineSpec extends DevStackSpec {
             } catch (ignored) {
             }
 
-            if ((start + timeoustS) < System.currentTimeSeconds()) {
+            if ((start + timeOutS) < System.currentTimeSeconds()) {
                 log.error("Timed out waiting for JSM to start after ${System.currentTimeSeconds() - start} seconds")
                 return false
             }
