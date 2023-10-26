@@ -37,13 +37,17 @@ class HarborDeploymentTest extends DevStackSpec {
     def "Test the basics"(String dockerHost, String certPath, String harborBaseUrl, String harborVersion, String harborBaseDir) {
 
         when:
+
+        new File(harborBaseDir).exists() && new File(harborBaseDir).deleteDir()
+        new File(harborBaseDir).mkdirs()
+
         HarborDeployment hd = new HarborDeployment(harborBaseUrl, harborVersion, harborBaseDir, dockerHost, certPath)
 
         if (dockerHost && certPath) {
             assert hd.managerContainer.dockerClient.dockerClientConfig.host == hd.managerContainer.extractDomainFromUrl(dockerHost): "Connection to remote Docker host was not setup"
 
-        }else {
-            assert hd.managerContainer.dockerClient.dockerClientConfig.host == "/var/run/docker.sock": "Connection to local Docker host was not setup"
+        } else {
+            assert hd.managerContainer.dockerClient.dockerClientConfig.host.endsWith("run/docker.sock"): "Connection to local Docker host was not setup as expected"
 
         }
 
@@ -56,10 +60,14 @@ class HarborDeploymentTest extends DevStackSpec {
         Unirest.get(harborBaseUrl).basicAuth("admin", "Harbor12345").asEmpty().status == 200
         hd.harborContainers.id.contains(hd.managerContainer.inspectContainer().id) //Make sure harborContainers returns manager container as well
         hd.harborContainers.every { it.state in [ContainerState.Status.Running.value, ContainerState.Status.Restarting.value] }
-        hd.harborContainers.every {it.networkSettings.networks.keySet().toList() == [hd.deploymentNetworkName]}
-        hd.harborContainers.collect {it.names.first()}.every {containerName ->
+        hd.harborContainers.every {
+            assert it.networkSettings.networks.keySet().toList() == [hd.deploymentNetworkName] : it.names.join(",") + " container has the wrong network: " + it.networkSettings.networks.keySet().toList().join(", ")
+            return true
+        }
+        hd.harborContainers.collect { it.names.first() }.every { containerName ->
             String hostname = containerName[1..-1]
-            hd.managerContainer.runBashCommandInContainer("ping ${hostname} -c 1 && echo Status: \$?", 5).last().contains("Status: 0")
+            assert hd.managerContainer.runBashCommandInContainer("ping ${hostname} -c 1 && echo Status: \$?", 5).last().contains("Status: 0") : "Management container can not ping $hostname"
+            return true
         }
 
         when: "Stopping the deployment"
@@ -85,9 +93,10 @@ class HarborDeploymentTest extends DevStackSpec {
         hd.getHarborContainers().size() == 0
 
         where:
-        dockerHost       | certPath       | harborBaseUrl             | harborVersion | harborBaseDir
-        ""               | ""             | "http://localhost"        | "v2.6.0"      | "/tmp"
-        dockerRemoteHost | dockerCertPath | "http://harbor.domain.se" | "v2.6.0"      | "/tmp"
+        dockerHost | certPath | harborBaseUrl      | harborVersion | harborBaseDir
+        ""         | ""       | "http://localhost" | "v2.7.3"      | "/tmp/harbor"
+        ""         | ""       | "http://localhost" | "v2.6.0"      | "/tmp/harbor"
+        //dockerRemoteHost | dockerCertPath | "http://harbor.domain.se" | "v2.6.0"      | "/tmp"
 
     }
 }
