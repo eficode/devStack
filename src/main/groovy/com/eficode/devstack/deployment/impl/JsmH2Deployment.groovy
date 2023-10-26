@@ -118,7 +118,10 @@ class JsmH2Deployment implements Deployment{
             if (setupDeployment()) {
                 if (snapshotAfterCreation) {
                     log.info("\tSnapshotting the newly created container")
-                    return jsmContainer.snapshotJiraHome() != null
+                    assert jsmContainer.snapshotJiraHome() != null : "Error snapshotting container:" + jsmContainer.shortId
+                    log.info("\tWaiting for JIRA to start back up")
+                    assert jiraRest.waitForJiraToBeResponsive() : "Error waiting for JIRA to start up after creating snapshot"
+                    return true
                 }else {
                     return true
                 }

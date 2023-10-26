@@ -74,9 +74,14 @@ class HarborDeployment implements Deployment {
 
         assert managerContainer.startContainer()
         sleep(5000)
-        ArrayList<String> cmdOutput = managerContainer.runBashCommandInContainer("cd ${managerContainer.installPath}/harbor ; docker-compose start ; echo status: \$?", 120)
+        ArrayList<String> cmdOutput = managerContainer.runBashCommandInContainer("cd ${managerContainer.installPath}/harbor && docker-compose start && echo status: \$?", 120)
+        if (cmdOutput.last() != "status: 0" || cmdOutput.toString().contains("error")) {
+            log.warn("\tThere was an error starting harbor deployment, this is common and a second attempt will be made")
+            sleep(5000)
+            cmdOutput = managerContainer.runBashCommandInContainer("cd ${managerContainer.installPath}/harbor && docker-compose start && echo status: \$?", 120)
+        }
         assert cmdOutput.last() == "status: 0": "Error starting harbor:" + cmdOutput.join("\n")
-
+        sleep(5000)
         return true
     }
 
@@ -86,7 +91,7 @@ class HarborDeployment implements Deployment {
 
 
         assert managerContainer.startContainer()
-        ArrayList<String> cmdOutput = managerContainer.runBashCommandInContainer("cd ${managerContainer.installPath}/harbor ; docker-compose stop ; echo status: \$?", 120)
+        ArrayList<String> cmdOutput = managerContainer.runBashCommandInContainer("cd ${managerContainer.installPath}/harbor && docker-compose stop && echo status: \$?", 120)
         assert cmdOutput.last() == "status: 0": "Error stopping harbor:" + cmdOutput.join("\n")
 
         assert managerContainer.stopContainer()
