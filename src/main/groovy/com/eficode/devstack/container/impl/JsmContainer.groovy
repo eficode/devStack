@@ -60,25 +60,23 @@ class JsmContainer implements Container {
 
     @Override
     ContainerCreateRequest setupContainerCreateRequest() {
-
-        String image = containerImage + ":" + containerImageTag
-
         log.debug("Setting up container create request for JSM container")
-        if (dockerClient.engineArch != "x86_64") {
-            log.debug("\tDocker engine is not x86, building custom JSM docker image")
 
-            ImageBuilder imageBuilder = new ImageBuilder(dockerClient.host, dockerClient.certPath)
-            String jsmVersion = containerImageTag
-            if (jsmVersion == "latest") {
-                log.debug("\tCurrent image tag is set to \"latest\", need to resolve latest version number from Atlassian Marketplace in order to build custom image")
-                jsmVersion = getLatestJsmVersion()
-            }
-            log.debug("\tStarting building of Docker Image for JSM verion $jsmVersion")
-            ImageSummary newImage = imageBuilder.buildJsm(jsmVersion)
-            log.debug("\tFinished building custom image:" + newImage.repoTags.join(","))
-
-            image = newImage.repoTags.first()
+        new ImageBuilder(dockerClient.host, dockerClient.certPath)
+        String jsmVersion = containerImageTag
+        if (jsmVersion == "latest") {
+            log.debug("\tCurrent image tag is set to \"latest\", need to resolve latest version number from Atlassian Marketplace in order to build custom image")
+            jsmVersion = getLatestJsmVersion()
         }
+        log.debug("\tStarting building of Docker Image for JSM verion $jsmVersion")
+        ImageSummary jsmImage = new ImageBuilder(dockerClient.host, dockerClient.certPath).buildJsm(jsmVersion)
+        log.debug("\tFinished building custom image:" + jsmImage.repoTags.join(","))
+
+        log.debug("\tStarting building of Docker Image for faketime JSM verion $jsmVersion")
+        ImageSummary faketimeJsmImage = new ImageBuilder(dockerClient.host, dockerClient.certPath).buildFaketimeJsm(jsmVersion)
+        log.debug("\tFinished building custom image:" + faketimeJsmImage.repoTags.join(","))
+
+        String image = faketimeJsmImage.repoTags.first()
 
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
@@ -94,7 +92,7 @@ class JsmContainer implements Container {
                 if (debugPort) {
                     h.portBindings.put((debugPort + "/tcp"), [new PortBinding("0.0.0.0", (debugPort))])
                     c.exposedPorts.put((debugPort + "/tcp"), [:])
-                    c.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=-Xdebug -Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n".toString())
+                    c.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=-XX:+UnlockDiagnosticVMOptions -XX:DisableIntrinsic=_currentTimeMillis -XX:CompileCommand=dontinline,java.lang.System::currentTimeMillis -agentpath:/libfaketime.so=+2592000000 -Xdebug -Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n".toString())
                 }
 
 
