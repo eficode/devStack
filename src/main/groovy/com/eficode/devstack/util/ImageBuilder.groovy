@@ -49,7 +49,8 @@ class ImageBuilder extends DoodContainer {
         String imageName = "atlassian/jira-servicemanagement"
         String artifactName = "atlassian-servicedesk"
         String archType = dockerClient.engineArch
-        String imageTag = "$imageName:$jsmVersion-$archType"
+        String archTypeSuffix = archType == "x86_64" ? "" : "-$archType"
+        String imageTag = "$imageName:$jsmVersion$archTypeSuffix"
         containerName = imageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-imageBuilder".length())
         containerName += "-imageBuilder"
 
@@ -79,11 +80,12 @@ class ImageBuilder extends DoodContainer {
         String imageName = "atlassian/jira-servicemanagement"
         String artifactName = "atlassian-servicedesk"
         String archType = dockerClient.engineArch
-        String imageTag = "$imageName:$jsmVersion-$archType"
+        String archTypeSuffix = archType == "x86_64" ? "" : "-$archType"
+        String imageTag = "$imageName:$jsmVersion$archTypeSuffix"
         String faketimeRoot = "/faketimebuild"
         String faketimeDockerFilePath = "$faketimeRoot/Dockerfile"
         String faketimeAgentFilePath = "$faketimeRoot/faketime.cpp"
-        String faketimeImageTag = "$imageName-faketime:$jsmVersion-$archType"
+        String faketimeImageTag = "$imageName-faketime:$jsmVersion$archTypeSuffix"
         String faketimecpp = getClass().getResourceAsStream("/faketime.cpp").text
         containerName = faketimeImageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-IB".length())
         containerName += "-IB"
