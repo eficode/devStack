@@ -246,17 +246,17 @@ class JsmContainerTest extends DevStackSpec {
 
 
     //Does not test functionality
-    def "Test building of JVM TimeTravel"(boolean enableTimeTravel, boolean enableJvmDebug) {
+    def "Test building of JSM JVM TimeTravel"(boolean enableTimeTravel, boolean enableJvmDebug) {
 
 
         setup:
         log.info("Testing setup and use of JVM TimeTravel enabled JSM container")
         JsmContainer jsm = new JsmContainer()
-        jsm.enableJvmTimeTravel(true)
+
 
         when: "Setting up the container JvmTimeTravel enabled"
         log.info("\tSetting up JSM container using trait method")
-        jsm.enableJvmTimeTravel(true)
+        jsm.enableJvmTimeTravel(enableTimeTravel)
         enableJvmDebug ? jsm.enableJvmDebug() : null
         String containerId = jsm.createContainer()
         ContainerSummary containerSummary = dockerClient.getContainerById(containerId)
@@ -266,10 +266,10 @@ class JsmContainerTest extends DevStackSpec {
         jsm.startContainer()
 
         then: "The container should have envs and files enabling time travel"
-        assert jvmArgs.contains("-XX:DisableIntrinsic=_currentTimeMillis"): "Container is missing expected env var"
-        assert jvmArgs.contains("-XX:+UnlockDiagnosticVMOptions"): "Container is missing expected env var"
-        assert jvmArgs.contains("-agentpath:"): "Container is missing expected env var"
-        assert !enableJvmDebug || jvmArgs.contains("-Xdebug") : "JVM Debug was enabled but not is missing from env vars"
+        assert !enableTimeTravel || jvmArgs.contains("-XX:DisableIntrinsic=_currentTimeMillis"): "Container is missing expected env var"
+        assert !enableTimeTravel || jvmArgs.contains("-XX:+UnlockDiagnosticVMOptions"): "Container is missing expected env var"
+        assert !enableTimeTravel || jvmArgs.contains("-agentpath:"): "Container is missing expected env var"
+        assert !enableJvmDebug || jvmArgs.contains("-Xdebug"): "JVM Debug was enabled but not is missing from env vars"
         assert jsm.runBashCommandInContainer("test -f /faketime.cpp && echo status: \$?").contains("status: 0"): "Could not find the expected file /faketime.cpp in the container "
 
 
@@ -277,6 +277,7 @@ class JsmContainerTest extends DevStackSpec {
         enableTimeTravel | enableJvmDebug
         true             | false
         true             | true
+        false            | false
     }
 
 
