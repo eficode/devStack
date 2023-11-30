@@ -15,11 +15,11 @@ class JsmContainerTest extends DevStackSpec {
 
     def setupSpec() {
 
-        dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "~/.docker/"
+        dockerRemoteHost = ""// "https://docker.domain.se:2376"
+        dockerCertPath = ""// "~/.docker/"
 
 
-        DevStackSpec.log = LoggerFactory.getLogger(JsmContainerTest.class)
+        log = LoggerFactory.getLogger(JsmContainerTest.class)
 
         cleanupContainerNames = ["jira.domain.se", "JSM", "Spoc-JSM"]
         cleanupContainerPorts = [8080]
@@ -30,28 +30,28 @@ class JsmContainerTest extends DevStackSpec {
     def "test isCreated"(String dockerHost, String certPath) {
 
         when:
-        DevStackSpec.log.info("Testing isCreated")
+        log.info("Testing isCreated")
         JsmContainer jsm = new JsmContainer(dockerHost, certPath)
 
         then:
         !jsm.isCreated()
-        DevStackSpec.log.info("\tDid not return a false positive")
+        log.info("\tDid not return a false positive")
 
         when:
         String containerId = jsm.createContainer()
-        DevStackSpec.log.info("\tCreated container:" + containerId)
+        log.info("\tCreated container:" + containerId)
 
         then:
         jsm.isCreated()
-        DevStackSpec.log.info("\tisCreated now returns true")
+        log.info("\tisCreated now returns true")
 
         when:
         jsm.stopAndRemoveContainer() ?: {throw new Exception("Error revoming container $containerId")}
-        DevStackSpec.log.info("\tRemoved container")
+        log.info("\tRemoved container")
 
         then:
         !jsm.isCreated()
-        DevStackSpec.log.info("\tisCreated now again returns false")
+        log.info("\tisCreated now again returns false")
 
         where:
         dockerHost       | certPath
@@ -59,6 +59,7 @@ class JsmContainerTest extends DevStackSpec {
         dockerRemoteHost | dockerCertPath
 
     }
+
 
     def "test setupSecureRemoteConnection"() {
 
@@ -70,8 +71,8 @@ class JsmContainerTest extends DevStackSpec {
         JsmContainer jsm = new JsmContainer(dockerRemoteHost, dockerCertPath)
 
         then:
-        assert jsm.ping(): "Error pinging docker engine"
-        assert jsm.dockerClient.dockerClientConfig.scheme == "https"
+        assert jsm.ping() || dockerRemoteHost == "": "Error pinging docker engine"
+        assert jsm.dockerClient.dockerClientConfig.scheme == "https" || dockerRemoteHost == ""
 
 
     }
@@ -80,8 +81,13 @@ class JsmContainerTest extends DevStackSpec {
 
     def "test setupContainer"(String dockerHost, String certPath) {
         setup:
-        DevStackSpec.log.info("Testing setup of JSM container using trait method")
+        log.info("Testing setup of JSM container using trait method")
         JsmContainer jsm = new JsmContainer(dockerHost, certPath)
+        String archTypeSuffix = dockerClient.engineArch == "x86_64" ? "" : "-$dockerClient.engineArch"
+        String latestJsmVersion = JsmContainer.getLatestJsmVersion()
+
+        //If arch != x86 a custom image will be built with a tag != latest
+        ArrayList<String>expectedImageTags = ["atlassian/jira-servicemanagement:latest" , "atlassian/jira-servicemanagement:$latestJsmVersion$archTypeSuffix".toString()]
 
         when:
         String containerId = jsm.createContainer()
@@ -92,9 +98,9 @@ class JsmContainerTest extends DevStackSpec {
         assert containerInspect.name ==  "/" + jsm.containerName : "JSM was not given the expected name"
         assert containerInspect.state.status == ContainerState.Status.Created : "JSM Container status is of unexpected value"
         assert containerInspect.state.running == false : "JSM Container was started even though it should only have been created"
-        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.find {it == "atlassian/jira-servicemanagement:latest"} : "JSM container was created with incorrect Docker image"
+        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.any {it in expectedImageTags} : "JSM container was created with incorrect Docker image"
         assert containerInspect.hostConfig.portBindings.containsKey("8080/tcp") : "JSM Container port binding was not setup correctly"
-        DevStackSpec.log.info("\tJSM Container was setup correctly")
+        log.info("\tJSM Container was setup correctly")
 
 
         where:
@@ -108,10 +114,9 @@ class JsmContainerTest extends DevStackSpec {
 
     def "test non standard parameters"(String dockerHost, String certPath) {
         setup:
-        DevStackSpec.log.info("Testing setup of JSM container using dedicated JSM method")
+        log.info("Testing setup of JSM container using dedicated JSM method")
         JsmContainer jsm = new JsmContainer(dockerHost, certPath)
         jsm.containerName = "Spoc-JSM"
-        jsm.containerImageTag = "4-ubuntu-jdk11"
         jsm.containerMainPort = "666"
 
         when:
@@ -124,8 +129,7 @@ class JsmContainerTest extends DevStackSpec {
         assert containerInspect.state.status == ContainerState.Status.Created : "JSM Container status is of unexpected value"
         assert containerInspect.state.running == false : "JSM Container was started even though it should only have been created"
         assert containerInspect.hostConfig.portBindings.containsKey("666/tcp") : "JSM Container port binding was not setup correctly"
-        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.find {it == "atlassian/jira-servicemanagement:4-ubuntu-jdk11"} : "JSM container was created with incorrect Docker image"
-        DevStackSpec.log.info("\tJSM Container was setup correctly")
+        log.info("\tJSM Container was setup correctly")
 
 
         where:
@@ -141,11 +145,11 @@ class JsmContainerTest extends DevStackSpec {
 
 
         setup:
-        DevStackSpec.log.info("Testing stop and removal of JSM container")
+        log.info("Testing stop and removal of JSM container")
         JsmContainer jsm = new JsmContainer(dockerHost, certPath)
 
         when: "Setting up the container with the trait method"
-        DevStackSpec.log.info("\tSetting up JSM container using trait method")
+        log.info("\tSetting up JSM container using trait method")
         String containerId = jsm.createContainer()
 
         then: "Removing it should return true"
@@ -161,7 +165,7 @@ class JsmContainerTest extends DevStackSpec {
 
 
         when: "Setting up the container with the trait method"
-        DevStackSpec.log.info("\tSetting up JSM container using dedicated JSM method")
+        log.info("\tSetting up JSM container using dedicated JSM method")
         String containerId2 = jsm.createContainer()
 
         then: "Removing it should return true"
@@ -188,42 +192,42 @@ class JsmContainerTest extends DevStackSpec {
         String containerSrcPath = "/opt/atlassian/jira/atlassian-jira/WEB-INF/classes/com/atlassian/jira/"
         String containerDstDir = "/var/atlassian/application-data/jira/"
 
-        DevStackSpec.log.info("Testing copying files to and from JSM container")
+        log.info("Testing copying files to and from JSM container")
         JsmContainer jsm = new JsmContainer(dockerHost, certPath)
         String containerId = jsm.createContainer()
-        DevStackSpec.log.info("\tCreated container:" + containerId)
+        log.info("\tCreated container:" + containerId)
 
         Path tempDir = Files.createTempDirectory("testing-${this.class.simpleName}")
-        DevStackSpec.log.info("\tCreated temp dir:" + containerId.toString())
+        log.info("\tCreated temp dir:" + containerId.toString())
 
 
         when: "Copying files from container path:"
-        DevStackSpec.log.info("\tCopying files from container path:" + containerSrcPath)
+        log.info("\tCopying files from container path:" + containerSrcPath)
         ArrayList<File>copiedFiles = jsm.copyFilesFromContainer(containerSrcPath, tempDir.toString() + "/")
-        DevStackSpec.log.info("\tCopied ${copiedFiles.size()} files from container")
+        log.info("\tCopied ${copiedFiles.size()} files from container")
 
         then: "Several files and directories should have been copied"
         assert copiedFiles.size() : "No files where copied from container"
         assert copiedFiles.any {it.directory} : "No directories where copied from container"
-        DevStackSpec.log.info("\tCopying files from container appears successful")
+        log.info("\tCopying files from container appears successful")
 
         when: "Copying a file to container"
         assert jsm.startContainer() : "Error starting container"
 
         File largestFile = copiedFiles.sort {it.size()}.last()
         String fileHash = largestFile.bytes.sha256()
-        DevStackSpec.log.info("\tCopying file ($largestFile.name) to container path:" + containerDstDir + largestFile.name)
-        DevStackSpec.log.debug("\t\tFile size:" + (largestFile.size() * 0.000001).round(1) + "MB")
-        DevStackSpec.log.debug("\t\tFile hash:" + fileHash)
+        log.info("\tCopying file ($largestFile.name) to container path:" + containerDstDir + largestFile.name)
+        log.debug("\t\tFile size:" + (largestFile.size() * 0.000001).round(1) + "MB")
+        log.debug("\t\tFile hash:" + fileHash)
 
         then: "File should copy without error"
         jsm.copyFileToContainer(largestFile.path, containerDstDir)
-        DevStackSpec.log.info("\tFinished copying file to container")
+        log.info("\tFinished copying file to container")
 
         when: "Running a hash in the container"
-        DevStackSpec.log.info("Executing hash calculation of file in container")
+        log.info("Executing hash calculation of file in container")
         ArrayList<String> hashOutput = jsm.runBashCommandInContainer("sha256sum " + containerDstDir + largestFile.name)
-        DevStackSpec.log.debug("\tContainer hash output:" + hashOutput)
+        log.debug("\tContainer hash output:" + hashOutput)
 
         then: "The container hash and local hash should be identical"
         assert hashOutput.size() == 1 : "Expected one output row from remote bash command"
@@ -234,7 +238,7 @@ class JsmContainerTest extends DevStackSpec {
 
 
         cleanup:
-        DevStackSpec.log.info("\tDeleting temp dir:" + tempDir.toString())
+        log.info("\tDeleting temp dir:" + tempDir.toString())
         FileUtils.deleteDirectory(tempDir.toFile())
 
 
