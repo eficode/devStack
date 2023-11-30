@@ -3,6 +3,7 @@ package com.eficode.devstack.container.impl
 import com.eficode.devstack.DevStackSpec
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
+import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.core.ClientException
 import org.apache.commons.io.FileUtils
 import org.slf4j.LoggerFactory
@@ -26,7 +27,6 @@ class JsmContainerTest extends DevStackSpec {
     }
 
 
-
     def "test isCreated"(String dockerHost, String certPath) {
 
         when:
@@ -46,7 +46,7 @@ class JsmContainerTest extends DevStackSpec {
         log.info("\tisCreated now returns true")
 
         when:
-        jsm.stopAndRemoveContainer() ?: {throw new Exception("Error revoming container $containerId")}
+        jsm.stopAndRemoveContainer() ?: { throw new Exception("Error revoming container $containerId") }
         log.info("\tRemoved container")
 
         then:
@@ -78,7 +78,6 @@ class JsmContainerTest extends DevStackSpec {
     }
 
 
-
     def "test setupContainer"(String dockerHost, String certPath) {
         setup:
         log.info("Testing setup of JSM container using trait method")
@@ -87,19 +86,19 @@ class JsmContainerTest extends DevStackSpec {
         String latestJsmVersion = JsmContainer.getLatestJsmVersion()
 
         //If arch != x86 a custom image will be built with a tag != latest
-        ArrayList<String>expectedImageTags = ["atlassian/jira-servicemanagement:latest" , "atlassian/jira-servicemanagement:$latestJsmVersion$archTypeSuffix".toString()]
+        ArrayList<String> expectedImageTags = ["atlassian/jira-servicemanagement:latest", "atlassian/jira-servicemanagement:$latestJsmVersion$archTypeSuffix".toString()]
 
         when:
         String containerId = jsm.createContainer()
-        ContainerInspectResponse containerInspect =  dockerClient.inspectContainer(containerId).content
+        ContainerInspectResponse containerInspect = dockerClient.inspectContainer(containerId).content
 
 
         then:
-        assert containerInspect.name ==  "/" + jsm.containerName : "JSM was not given the expected name"
-        assert containerInspect.state.status == ContainerState.Status.Created : "JSM Container status is of unexpected value"
-        assert containerInspect.state.running == false : "JSM Container was started even though it should only have been created"
-        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.any {it in expectedImageTags} : "JSM container was created with incorrect Docker image"
-        assert containerInspect.hostConfig.portBindings.containsKey("8080/tcp") : "JSM Container port binding was not setup correctly"
+        assert containerInspect.name == "/" + jsm.containerName: "JSM was not given the expected name"
+        assert containerInspect.state.status == ContainerState.Status.Created: "JSM Container status is of unexpected value"
+        assert containerInspect.state.running == false: "JSM Container was started even though it should only have been created"
+        assert dockerClient.inspectImage(containerInspect.image).content.repoTags.any { it in expectedImageTags }: "JSM container was created with incorrect Docker image"
+        assert containerInspect.hostConfig.portBindings.containsKey("8080/tcp"): "JSM Container port binding was not setup correctly"
         log.info("\tJSM Container was setup correctly")
 
 
@@ -109,7 +108,6 @@ class JsmContainerTest extends DevStackSpec {
         dockerRemoteHost | dockerCertPath
 
     }
-
 
 
     def "test non standard parameters"(String dockerHost, String certPath) {
@@ -121,14 +119,14 @@ class JsmContainerTest extends DevStackSpec {
 
         when:
         String containerId = jsm.createContainer()
-        ContainerInspectResponse containerInspect =  dockerClient.inspectContainer(containerId).content
+        ContainerInspectResponse containerInspect = dockerClient.inspectContainer(containerId).content
 
 
         then:
-        assert containerInspect.name ==  "/Spoc-JSM" : "JSM was not given the expected name"
-        assert containerInspect.state.status == ContainerState.Status.Created : "JSM Container status is of unexpected value"
-        assert containerInspect.state.running == false : "JSM Container was started even though it should only have been created"
-        assert containerInspect.hostConfig.portBindings.containsKey("666/tcp") : "JSM Container port binding was not setup correctly"
+        assert containerInspect.name == "/Spoc-JSM": "JSM was not given the expected name"
+        assert containerInspect.state.status == ContainerState.Status.Created: "JSM Container status is of unexpected value"
+        assert containerInspect.state.running == false: "JSM Container was started even though it should only have been created"
+        assert containerInspect.hostConfig.portBindings.containsKey("666/tcp"): "JSM Container port binding was not setup correctly"
         log.info("\tJSM Container was setup correctly")
 
 
@@ -138,7 +136,6 @@ class JsmContainerTest extends DevStackSpec {
         dockerRemoteHost | dockerCertPath
 
     }
-
 
 
     def "test stopAndRemoveContainer"(String dockerHost, String certPath) {
@@ -160,8 +157,7 @@ class JsmContainerTest extends DevStackSpec {
 
         then: "Exception should be thrown"
         ClientException ex = thrown(ClientException)
-        assert ex.message.startsWith("Client error : 404 Not Found") : "Unexpected exception thrown when inspecting the deleted container"
-
+        assert ex.message.startsWith("Client error : 404 Not Found"): "Unexpected exception thrown when inspecting the deleted container"
 
 
         when: "Setting up the container with the trait method"
@@ -176,7 +172,7 @@ class JsmContainerTest extends DevStackSpec {
 
         then: "Exception should be thrown"
         ClientException ex2 = thrown(ClientException)
-        assert ex2.message.startsWith("Client error : 404 Not Found") : "Unexpected exception thrown when inspecting the deleted container"
+        assert ex2.message.startsWith("Client error : 404 Not Found"): "Unexpected exception thrown when inspecting the deleted container"
 
         where:
         dockerHost       | certPath
@@ -203,18 +199,18 @@ class JsmContainerTest extends DevStackSpec {
 
         when: "Copying files from container path:"
         log.info("\tCopying files from container path:" + containerSrcPath)
-        ArrayList<File>copiedFiles = jsm.copyFilesFromContainer(containerSrcPath, tempDir.toString() + "/")
+        ArrayList<File> copiedFiles = jsm.copyFilesFromContainer(containerSrcPath, tempDir.toString() + "/")
         log.info("\tCopied ${copiedFiles.size()} files from container")
 
         then: "Several files and directories should have been copied"
-        assert copiedFiles.size() : "No files where copied from container"
-        assert copiedFiles.any {it.directory} : "No directories where copied from container"
+        assert copiedFiles.size(): "No files where copied from container"
+        assert copiedFiles.any { it.directory }: "No directories where copied from container"
         log.info("\tCopying files from container appears successful")
 
         when: "Copying a file to container"
-        assert jsm.startContainer() : "Error starting container"
+        assert jsm.startContainer(): "Error starting container"
 
-        File largestFile = copiedFiles.sort {it.size()}.last()
+        File largestFile = copiedFiles.sort { it.size() }.last()
         String fileHash = largestFile.bytes.sha256()
         log.info("\tCopying file ($largestFile.name) to container path:" + containerDstDir + largestFile.name)
         log.debug("\t\tFile size:" + (largestFile.size() * 0.000001).round(1) + "MB")
@@ -230,11 +226,10 @@ class JsmContainerTest extends DevStackSpec {
         log.debug("\tContainer hash output:" + hashOutput)
 
         then: "The container hash and local hash should be identical"
-        assert hashOutput.size() == 1 : "Expected one output row from remote bash command"
-        assert hashOutput.first().contains(fileHash) : "Output from container does not contain the expected hash"
-        assert hashOutput.first().contains(containerDstDir + largestFile.name) : "Output from container does not contain the expected file path"
-        assert hashOutput == [ fileHash + "  " + containerDstDir + largestFile.name] : "Output from container is not formatted as expected"
-
+        assert hashOutput.size() == 1: "Expected one output row from remote bash command"
+        assert hashOutput.first().contains(fileHash): "Output from container does not contain the expected hash"
+        assert hashOutput.first().contains(containerDstDir + largestFile.name): "Output from container does not contain the expected file path"
+        assert hashOutput == [fileHash + "  " + containerDstDir + largestFile.name]: "Output from container is not formatted as expected"
 
 
         cleanup:
@@ -250,6 +245,38 @@ class JsmContainerTest extends DevStackSpec {
     }
 
 
+    def "Test JVM TimeTravel"(boolean enableTimeTravel, boolean enableJvmDebug) {
+
+
+        setup:
+        log.info("Testing setup and use of JVM TimeTravel enabled JSM container")
+        JsmContainer jsm = new JsmContainer()
+        jsm.enableJvmTimeTravel(true)
+
+        when: "Setting up the container JvmTimeTravel enabled"
+        log.info("\tSetting up JSM container using trait method")
+        jsm.enableJvmTimeTravel(true)
+        enableJvmDebug ? jsm.enableJvmDebug() : null
+        String containerId = jsm.createContainer()
+        ContainerSummary containerSummary = dockerClient.getContainerById(containerId)
+        ContainerInspectResponse containerInspect = dockerClient.inspectContainer(containerSummary).content
+        String jvmArgs = containerInspect.config.env.find { it.startsWith("JVM_SUPPORT_RECOMMENDED_ARGS") }
+
+        jsm.startContainer()
+
+        then: "The container should have envs enabling time travel"
+        assert jvmArgs.contains("-XX:DisableIntrinsic=_currentTimeMillis"): "Container is missing expected env var"
+        assert jvmArgs.contains("-XX:+UnlockDiagnosticVMOptions"): "Container is missing expected env var"
+        assert jvmArgs.contains("-agentpath:"): "Container is missing expected env var"
+        assert !enableJvmDebug || jvmArgs.contains("-Xdebug") : "JVM Debug was enabled but not is missing from env vars"
+        assert jsm.runBashCommandInContainer("test -f /faketime.cpp && echo status: \$?").contains("status: 0"): "Could not find the expected file /faketime.cpp in the container "
+
+
+        where:
+        enableTimeTravel | enableJvmDebug
+        true             | false
+        true             | true
+    }
 
 
 }
