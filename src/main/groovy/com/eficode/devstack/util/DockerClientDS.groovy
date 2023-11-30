@@ -6,6 +6,7 @@ import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.engine.DockerClientConfig
 import de.gesellix.docker.engine.DockerEnv
 import de.gesellix.docker.engine.EngineResponse
+import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.ExecConfig
 import de.gesellix.docker.remote.api.ExecStartConfig
@@ -90,6 +91,21 @@ class DockerClientDS extends DockerClientImpl {
         return containers
 
 
+    }
+
+    ContainerSummary getContainerById(String completeId) {
+        EngineResponse response = ps(true, 1000, true, " {\"id\":[\"${completeId}\"]}")
+
+
+        ArrayList<ContainerSummary> containers = response.content
+
+        return containers.find{true}
+
+    }
+
+
+    EngineResponseContent<ContainerInspectResponse> inspectContainer(ContainerSummary containerSummary){
+        return inspectContainer(containerSummary.id)
     }
 
 

@@ -245,7 +245,8 @@ class JsmContainerTest extends DevStackSpec {
     }
 
 
-    def "Test JVM TimeTravel"(boolean enableTimeTravel, boolean enableJvmDebug) {
+    //Does not test functionality
+    def "Test building of JVM TimeTravel"(boolean enableTimeTravel, boolean enableJvmDebug) {
 
 
         setup:
@@ -264,7 +265,7 @@ class JsmContainerTest extends DevStackSpec {
 
         jsm.startContainer()
 
-        then: "The container should have envs enabling time travel"
+        then: "The container should have envs and files enabling time travel"
         assert jvmArgs.contains("-XX:DisableIntrinsic=_currentTimeMillis"): "Container is missing expected env var"
         assert jvmArgs.contains("-XX:+UnlockDiagnosticVMOptions"): "Container is missing expected env var"
         assert jvmArgs.contains("-agentpath:"): "Container is missing expected env var"
