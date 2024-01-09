@@ -39,7 +39,7 @@ SubDeployments are simply a collection of deployments used by a more complex dep
 ## Utils
 
 These are classes mainly intended to be used by Container/Deployment-classes when massaging of the containers are needed for example. 
-Currently, [ImageBuilder.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FImageBuilder.groovy) dynamically builds Atlassian images for non x86 architectures on the fly.
+Currently, [ImageBuilder.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FImageBuilder.groovy) dynamically builds Atlassian images on the fly.
 [TimeMachine.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FTimeMachine.groovy) changes the apparent time for all
 containers sharing a Docker Engine, intended for testing date changes.
 

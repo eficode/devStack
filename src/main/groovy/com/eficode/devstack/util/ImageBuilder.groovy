@@ -3,7 +3,6 @@ import com.eficode.devstack.container.impl.DoodContainer
 import de.gesellix.docker.remote.api.ImageSummary
 import java.util.concurrent.TimeoutException
 
-
 /**
  * A utility class intended to build docker images so that they match the docker engines CPU architecture
  *
@@ -15,7 +14,6 @@ class ImageBuilder extends DoodContainer {
     LinkedHashMap<String, String> builderCommands = [:]
     Map<String, ArrayList<String>>builderOut = [:]
     long cmdTimeoutS = 800 //Will timeout individual container commands after this many seconds
-
 
     ImageBuilder(String dockerHost, String dockerCertPath) {
         assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
@@ -48,11 +46,11 @@ class ImageBuilder extends DoodContainer {
      * @return
      */
     ImageSummary buildJsm(String jsmVersion, boolean force = false){
-
         String imageName = "atlassian/jira-servicemanagement"
         String artifactName = "atlassian-servicedesk"
         String archType = dockerClient.engineArch
-        String imageTag = "$imageName:$jsmVersion-$archType"
+        String archTypeSuffix = archType == "x86_64" ? "" : "-$archType"
+        String imageTag = "$imageName:$jsmVersion$archTypeSuffix"
         containerName = imageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-imageBuilder".length())
         containerName += "-imageBuilder"
 
@@ -75,6 +73,118 @@ class ImageBuilder extends DoodContainer {
         ArrayList<ImageSummary> images = dockerClient.images().content
         ImageSummary newImage =  images.find {it.repoTags == [imageTag]}
         log.debug("\tFinished building image:" + imageTag + ", ID:" + newImage.id[7..17])
+        return newImage
+    }
+
+    /*
+    ImageSummary buildFakeTimeJsm(String jsmVersion, boolean force = false){
+        String imageName = "atlassian/jira-servicemanagement"
+        String artifactName = "atlassian-servicedesk"
+        String archType = dockerClient.engineArch
+        String archTypeSuffix = archType == "x86_64" ? "" : "-$archType"
+        String imageTag = "$imageName:$jsmVersion$archTypeSuffix"
+        String fakeTimeRoot = "/faketimebuild"
+        String fakeTimeDockerFilePath = "$fakeTimeRoot/Dockerfile"
+        String fakeTimeAgentFilePath = "$fakeTimeRoot/faketime.cpp"
+        String fakeTimeImageTag = "$imageName-faketime:$jsmVersion$archTypeSuffix"
+        String fakeTimCpp = getClass().getResourceAsStream("/faketime.cpp").text
+        containerName = fakeTimeImageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-IB".length())
+        containerName += "-IB"
+
+        log.info("my name is now $containerName")
+
+        //Check first if an image with the expected tag already exists
+        if (!force) {
+            ArrayList<ImageSummary> existingImages = dockerClient.images().content
+            ImageSummary existingImage =  existingImages.find {it.repoTags == [fakeTimeImageTag]}
+            if (existingImage) {
+                return existingImage
+            }
+        }
+
+        String fakeTimeDockerFile = """
+        FROM $imageTag
+        WORKDIR /
+        RUN apt-get update && apt-get install -y wget g++ make
+        # RUN wget https://github.com/odnoklassniki/jvmti-tools/raw/master/faketime/faketime.cpp
+        COPY faketime.cpp .
+        RUN g++ -O2 -fPIC -shared -I \$JAVA_HOME/include -I \$JAVA_HOME/include/linux -olibfaketime.so faketime.cpp
+
+        ENV JVM_SUPPORT_RECOMMENDED_ARGS="-agentpath:/libfaketime.so=+2592000000"
+        """
+
+
+        putBuilderCommand("mkdir -p $fakeTimeRoot", "")
+        putBuilderCommand("cat > $fakeTimeDockerFilePath <<- 'EOF'\n" + fakeTimeDockerFile + "\nEOF", "")
+        putBuilderCommand("cat > $fakeTimeAgentFilePath <<- 'EOF'\n" + fakeTimCpp + "\nEOF", "")
+        putBuilderCommand("cd $fakeTimeRoot && docker build --tag $fakeTimeImageTag --build-arg JIRA_VERSION=$jsmVersion --build-arg ARTEFACT_NAME=$artifactName . && echo status:\$?", "status:0")
+        putBuilderCommand("pkill tail", "")
+
+        assert build() : "Error building the image."
+
+        ArrayList<ImageSummary> images = dockerClient.images().content
+        ImageSummary newImage = images.find {it.repoTags == [fakeTimeImageTag]}
+        return newImage
+    }
+
+     */
+
+
+
+    ImageSummary buildJvmFakeTime(ImageSummary originalImage, boolean force = false) {
+
+        String originalRepoTag = originalImage.repoTags.first()
+        String origImageName = originalRepoTag.substring(0,originalRepoTag.indexOf(":"))
+        String origImageTag = originalRepoTag.substring(originalRepoTag.indexOf(":")+ 1)
+
+        return buildJvmFakeTime(origImageName, origImageTag, force)
+
+    }
+
+    //Presumes srcImage has "apt-get" commands
+    ImageSummary buildJvmFakeTime(String srcImage, String srcImageTag, boolean force) {
+
+        String fakeTimeImageTag = "$srcImage-faketime:$srcImageTag"
+        containerName = fakeTimeImageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(120-"-BuildFake".length())
+
+        String fakeTimeRoot = "/faketimebuild"
+        String fakeTimeDockerFilePath = "$fakeTimeRoot/Dockerfile"
+        String fakeTimeAgentFilePath = "$fakeTimeRoot/faketime.cpp"
+        String fakeTimCpp = getClass().getResourceAsStream("/faketime.cpp").text
+
+        //Check first if an image with the expected tag already exists
+        if (!force) {
+            ArrayList<ImageSummary> existingImages = dockerClient.images().content
+            ImageSummary existingImage =  existingImages.find {it.repoTags == [fakeTimeImageTag]}
+            if (existingImage) {
+                return existingImage
+            }
+        }
+
+        String fakeTimeDockerFile = """
+        FROM $srcImage:$srcImageTag
+        WORKDIR /
+        RUN apt-get update && apt-get install -y wget g++ make
+        COPY faketime.cpp /faketime.cpp
+        RUN g++ -O2 -fPIC -shared -I \$JAVA_HOME/include -I \$JAVA_HOME/include/linux -olibfaketime.so faketime.cpp
+      
+        """
+
+        // #ENV JVM_SUPPORT_RECOMMENDED_ARGS="-agentpath:/libfaketime.so=+2592000000"
+        //#RUN apt-get update && apt-get install -y  g++ make
+        //        #RUN wget https://github.com/odnoklassniki/jvmti-tools/raw/master/faketime/faketime.cpp
+
+        putBuilderCommand("mkdir -p $fakeTimeRoot", "")
+        putBuilderCommand("cat > $fakeTimeDockerFilePath <<- 'EOF'\n" + fakeTimeDockerFile + "\nEOF", "")
+        putBuilderCommand("cat > $fakeTimeAgentFilePath <<- 'EOF'\n" + fakeTimCpp + "\nEOF", "")
+        putBuilderCommand("cd $fakeTimeRoot && docker build --tag $fakeTimeImageTag . && echo status:\$?", "status:0")
+        putBuilderCommand("pkill tail", "")
+
+
+        assert build() : "Error building the image."
+
+        ArrayList<ImageSummary> images = dockerClient.images().content
+        ImageSummary newImage = images.find {it.repoTags == [fakeTimeImageTag]}
         return newImage
 
     }
@@ -139,7 +249,6 @@ class ImageBuilder extends DoodContainer {
 
     @Override
     boolean runAfterDockerSetup(){
-
 
         builderCommands.each {cmd, expectedLastOut ->
             log.info("Running container command:" + cmd)

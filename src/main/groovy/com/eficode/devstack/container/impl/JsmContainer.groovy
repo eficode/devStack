@@ -23,6 +23,8 @@ class JsmContainer implements Container {
     long jvmMaxRam = 6000
 
     private String debugPort //Contains the port used for JVM debug
+    private Boolean enableJvmTimeTravel //If true, jvm time travel will be enabled
+
 
     JsmContainer(String dockerHost = "", String dockerCertPath = "") {
         if (dockerHost && dockerCertPath) {
@@ -38,6 +40,10 @@ class JsmContainer implements Container {
 
         assert !created: "Error, cant enable JVM Debug for a container that has already been crated"
         debugPort = portNr
+    }
+
+    void enableJvmTimeTravel(boolean enable) {
+        this.enableJvmTimeTravel = true
     }
 
     /**
@@ -59,30 +65,33 @@ class JsmContainer implements Container {
     }
 
     @Override
+    //TODO check but looks like it always builds a custom image now, even if x86
     ContainerCreateRequest setupContainerCreateRequest() {
-
-        String image = containerImage + ":" + containerImageTag
-
         log.debug("Setting up container create request for JSM container")
-        if (dockerClient.engineArch != "x86_64") {
-            log.debug("\tDocker engine is not x86, building custom JSM docker image")
 
-            ImageBuilder imageBuilder = new ImageBuilder(dockerClient.host, dockerClient.certPath)
-            String jsmVersion = containerImageTag
-            if (jsmVersion == "latest") {
-                log.debug("\tCurrent image tag is set to \"latest\", need to resolve latest version number from Atlassian Marketplace in order to build custom image")
-                jsmVersion = getLatestJsmVersion()
-            }
-            log.debug("\tStarting building of Docker Image for JSM verion $jsmVersion")
-            ImageSummary newImage = imageBuilder.buildJsm(jsmVersion)
-            log.debug("\tFinished building custom image:" + newImage.repoTags.join(","))
 
-            image = newImage.repoTags.first()
+        String jsmVersion = containerImageTag
+        if (jsmVersion == "latest") {
+            log.debug("\tCurrent image tag is set to \"latest\", need to resolve latest version number from Atlassian Marketplace in order to build custom image")
+            jsmVersion = getLatestJsmVersion()
         }
+        log.debug("\tStarting building of Docker Image for JSM verion $jsmVersion")
+        ImageSummary jsmImage = new ImageBuilder(dockerClient.host, dockerClient.certPath).buildJsm(jsmVersion)
+        log.debug("\tFinished building custom image:" + jsmImage.repoTags.join(","))
+        String imageNameAndTag = jsmImage.repoTags.first()
+
+        if (enableJvmTimeTravel) {
+            log.debug("\tStarting building of Docker Image for faketime JSM")
+            ImageSummary faketimeJsmImage = new ImageBuilder(dockerClient.host, dockerClient.certPath).buildJvmFakeTime(jsmImage, false)
+            log.debug("\tFinished building custom image:" + faketimeJsmImage.repoTags.join(","))
+
+            imageNameAndTag = faketimeJsmImage.repoTags.first()
+        }
+
 
         ContainerCreateRequest containerCreateRequest = new ContainerCreateRequest().tap { c ->
 
-            c.image = image
+            c.image = imageNameAndTag
             c.hostname = containerName
             c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "ATL_TOMCAT_PORT=" + containerMainPort] + customEnvVar
 
@@ -90,17 +99,22 @@ class JsmContainer implements Container {
             c.exposedPorts = [(containerMainPort + "/tcp"): [:]]
             c.hostConfig = new HostConfig().tap { h ->
                 h.portBindings = [(containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (containerMainPort))]]
-
+                ArrayList<String> additionalJvmArgs = []
                 if (debugPort) {
                     h.portBindings.put((debugPort + "/tcp"), [new PortBinding("0.0.0.0", (debugPort))])
                     c.exposedPorts.put((debugPort + "/tcp"), [:])
-                    c.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=-Xdebug -Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n".toString())
+                    additionalJvmArgs += "-Xdebug -Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n".toString()
+                }
+
+                if (enableJvmTimeTravel) {
+                    additionalJvmArgs += "-XX:+UnlockDiagnosticVMOptions -XX:DisableIntrinsic=_currentTimeMillis -XX:CompileCommand=dontinline,java.lang.System::currentTimeMillis -agentpath:/libfaketime.so".toString()
                 }
 
 
+                c.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=${additionalJvmArgs.join(" ")}".toString())
+
                 h.mounts = this.preparedMounts
             }
-
 
 
         }
@@ -115,7 +129,7 @@ class JsmContainer implements Container {
      * @return
      */
     MountPoint getJiraHomeMountPoint() {
-        return getMounts().find {it.destination == "/var/atlassian/application-data/jira"}
+        return getMounts().find { it.destination == "/var/atlassian/application-data/jira" }
     }
 
 
@@ -131,7 +145,7 @@ class JsmContainer implements Container {
         stopContainer()
         snapshotName = snapshotName ?: shortId + "-clone"
 
-        boolean success =  dockerClient.overwriteVolume(snapshotName, jiraHomeMountPoint.name)
+        boolean success = dockerClient.overwriteVolume(snapshotName, jiraHomeMountPoint.name)
         if (wasRunning) {
             startContainer()
         }
@@ -147,9 +161,9 @@ class JsmContainer implements Container {
 
         if (volumes.size() == 1) {
             return volumes.first()
-        }else if (volumes.isEmpty()) {
+        } else if (volumes.isEmpty()) {
             return null
-        }else {
+        } else {
             throw new InputMismatchException("Error finding snapshot volume:" + snapshotName)
         }
 
@@ -171,7 +185,7 @@ class JsmContainer implements Container {
         snapshotName = snapshotName ?: shortId + "-clone"
 
         ArrayList<Volume> existingVolumes = dockerClient.getVolumesWithName(snapshotName)
-        existingVolumes.each {existingVolume ->
+        existingVolumes.each { existingVolume ->
             log.debug("\tRemoving existing snapshot volume:" + existingVolume.name)
             dockerClient.manageVolume.rmVolume(existingVolume.name)
         }
@@ -189,7 +203,7 @@ class JsmContainer implements Container {
      * Clone JIRA home volume
      * Container must be stopped
      * @param newVolumeName must be unique
-     * @param labels, optional labels to add to the new volume
+     * @param labels , optional labels to add to the new volume
      * @return
      */
     Volume cloneJiraHome(String newVolumeName = "", Map<String, Object> labels = null) {
@@ -197,8 +211,8 @@ class JsmContainer implements Container {
         newVolumeName = newVolumeName ?: shortId + "-clone"
 
         labels = labels ?: [
-                srcContainerId : getId(),
-                created : System.currentTimeSeconds()
+                srcContainerId: getId(),
+                created       : System.currentTimeSeconds()
         ] as Map
 
         Volume newVolume = dockerClient.cloneVolume(jiraHomeMountPoint.name, newVolumeName, labels)
