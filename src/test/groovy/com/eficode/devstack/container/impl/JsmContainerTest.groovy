@@ -245,7 +245,7 @@ class JsmContainerTest extends DevStackSpec {
     }
 
 
-    //Does not test functionality
+    //Does not test functionality, just that the needed envs and bins seems to get deployed correctly
     def "Test building of JSM JVM TimeTravel"(boolean enableTimeTravel, boolean enableJvmDebug) {
 
 

@@ -65,6 +65,7 @@ class JsmContainer implements Container {
     }
 
     @Override
+    //TODO check but looks like it always builds a custom image now, even if x86
     ContainerCreateRequest setupContainerCreateRequest() {
         log.debug("Setting up container create request for JSM container")
 
@@ -81,7 +82,7 @@ class JsmContainer implements Container {
 
         if (enableJvmTimeTravel) {
             log.debug("\tStarting building of Docker Image for faketime JSM")
-            ImageSummary faketimeJsmImage = new ImageBuilder(dockerClient.host, dockerClient.certPath).buildJvmFakeTime(jsmImage, true)
+            ImageSummary faketimeJsmImage = new ImageBuilder(dockerClient.host, dockerClient.certPath).buildJvmFakeTime(jsmImage, false)
             log.debug("\tFinished building custom image:" + faketimeJsmImage.repoTags.join(","))
 
             imageNameAndTag = faketimeJsmImage.repoTags.first()

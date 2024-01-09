@@ -76,18 +76,19 @@ class ImageBuilder extends DoodContainer {
         return newImage
     }
 
-    ImageSummary buildFaketimeJsm(String jsmVersion, boolean force = false){
+    /*
+    ImageSummary buildFakeTimeJsm(String jsmVersion, boolean force = false){
         String imageName = "atlassian/jira-servicemanagement"
         String artifactName = "atlassian-servicedesk"
         String archType = dockerClient.engineArch
         String archTypeSuffix = archType == "x86_64" ? "" : "-$archType"
         String imageTag = "$imageName:$jsmVersion$archTypeSuffix"
-        String faketimeRoot = "/faketimebuild"
-        String faketimeDockerFilePath = "$faketimeRoot/Dockerfile"
-        String faketimeAgentFilePath = "$faketimeRoot/faketime.cpp"
-        String faketimeImageTag = "$imageName-faketime:$jsmVersion$archTypeSuffix"
-        String faketimecpp = getClass().getResourceAsStream("/faketime.cpp").text
-        containerName = faketimeImageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-IB".length())
+        String fakeTimeRoot = "/faketimebuild"
+        String fakeTimeDockerFilePath = "$fakeTimeRoot/Dockerfile"
+        String fakeTimeAgentFilePath = "$fakeTimeRoot/faketime.cpp"
+        String fakeTimeImageTag = "$imageName-faketime:$jsmVersion$archTypeSuffix"
+        String fakeTimCpp = getClass().getResourceAsStream("/faketime.cpp").text
+        containerName = fakeTimeImageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-IB".length())
         containerName += "-IB"
 
         log.info("my name is now $containerName")
@@ -95,13 +96,13 @@ class ImageBuilder extends DoodContainer {
         //Check first if an image with the expected tag already exists
         if (!force) {
             ArrayList<ImageSummary> existingImages = dockerClient.images().content
-            ImageSummary existingImage =  existingImages.find {it.repoTags == [faketimeImageTag]}
+            ImageSummary existingImage =  existingImages.find {it.repoTags == [fakeTimeImageTag]}
             if (existingImage) {
                 return existingImage
             }
         }
 
-        String faketimeDockerFile = """
+        String fakeTimeDockerFile = """
         FROM $imageTag
         WORKDIR /
         RUN apt-get update && apt-get install -y wget g++ make
@@ -113,17 +114,79 @@ class ImageBuilder extends DoodContainer {
         """
 
 
-        putBuilderCommand("mkdir -p $faketimeRoot", "")
-        putBuilderCommand("cat > $faketimeDockerFilePath <<- 'EOF'\n" + faketimeDockerFile + "\nEOF", "")
-        putBuilderCommand("cat > $faketimeAgentFilePath <<- 'EOF'\n" + faketimecpp + "\nEOF", "")
-        putBuilderCommand("cd $faketimeRoot && docker build --tag $faketimeImageTag --build-arg JIRA_VERSION=$jsmVersion --build-arg ARTEFACT_NAME=$artifactName . && echo status:\$?", "status:0")
+        putBuilderCommand("mkdir -p $fakeTimeRoot", "")
+        putBuilderCommand("cat > $fakeTimeDockerFilePath <<- 'EOF'\n" + fakeTimeDockerFile + "\nEOF", "")
+        putBuilderCommand("cat > $fakeTimeAgentFilePath <<- 'EOF'\n" + fakeTimCpp + "\nEOF", "")
+        putBuilderCommand("cd $fakeTimeRoot && docker build --tag $fakeTimeImageTag --build-arg JIRA_VERSION=$jsmVersion --build-arg ARTEFACT_NAME=$artifactName . && echo status:\$?", "status:0")
         putBuilderCommand("pkill tail", "")
 
         assert build() : "Error building the image."
 
         ArrayList<ImageSummary> images = dockerClient.images().content
-        ImageSummary newImage = images.find {it.repoTags == [faketimeImageTag]}
+        ImageSummary newImage = images.find {it.repoTags == [fakeTimeImageTag]}
         return newImage
+    }
+
+     */
+
+
+
+    ImageSummary buildJvmFakeTime(ImageSummary originalImage, boolean force = false) {
+
+        String originalRepoTag = originalImage.repoTags.first()
+        String origImageName = originalRepoTag.substring(0,originalRepoTag.indexOf(":"))
+        String origImageTag = originalRepoTag.substring(originalRepoTag.indexOf(":")+ 1)
+
+        return buildJvmFakeTime(origImageName, origImageTag, force)
+
+    }
+
+    //Presumes srcImage has "apt-get" commands
+    ImageSummary buildJvmFakeTime(String srcImage, String srcImageTag, boolean force) {
+
+        String fakeTimeImageTag = "$srcImage-faketime:$srcImageTag"
+        containerName = fakeTimeImageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(120-"-BuildFake".length())
+
+        String fakeTimeRoot = "/faketimebuild"
+        String fakeTimeDockerFilePath = "$fakeTimeRoot/Dockerfile"
+        String fakeTimeAgentFilePath = "$fakeTimeRoot/faketime.cpp"
+        String fakeTimCpp = getClass().getResourceAsStream("/faketime.cpp").text
+
+        //Check first if an image with the expected tag already exists
+        if (!force) {
+            ArrayList<ImageSummary> existingImages = dockerClient.images().content
+            ImageSummary existingImage =  existingImages.find {it.repoTags == [fakeTimeImageTag]}
+            if (existingImage) {
+                return existingImage
+            }
+        }
+
+        String fakeTimeDockerFile = """
+        FROM $srcImage:$srcImageTag
+        WORKDIR /
+        RUN apt-get update && apt-get install -y wget g++ make
+        COPY faketime.cpp /faketime.cpp
+        RUN g++ -O2 -fPIC -shared -I \$JAVA_HOME/include -I \$JAVA_HOME/include/linux -olibfaketime.so faketime.cpp
+      
+        """
+
+        // #ENV JVM_SUPPORT_RECOMMENDED_ARGS="-agentpath:/libfaketime.so=+2592000000"
+        //#RUN apt-get update && apt-get install -y  g++ make
+        //        #RUN wget https://github.com/odnoklassniki/jvmti-tools/raw/master/faketime/faketime.cpp
+
+        putBuilderCommand("mkdir -p $fakeTimeRoot", "")
+        putBuilderCommand("cat > $fakeTimeDockerFilePath <<- 'EOF'\n" + fakeTimeDockerFile + "\nEOF", "")
+        putBuilderCommand("cat > $fakeTimeAgentFilePath <<- 'EOF'\n" + fakeTimCpp + "\nEOF", "")
+        putBuilderCommand("cd $fakeTimeRoot && docker build --tag $fakeTimeImageTag . && echo status:\$?", "status:0")
+        putBuilderCommand("pkill tail", "")
+
+
+        assert build() : "Error building the image."
+
+        ArrayList<ImageSummary> images = dockerClient.images().content
+        ImageSummary newImage = images.find {it.repoTags == [fakeTimeImageTag]}
+        return newImage
+
     }
 
 
