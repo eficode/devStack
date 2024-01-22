@@ -1,0 +1,6 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Mon Jan 22 14:13:29 UTC 2024
+devstack-standalone-2.3.13.jar>=
+devstack-standalone-2.3.13-sources.jar>=
+devstack-standalone-2.3.13-test-sources.jar>=
+devstack-standalone-2.3.13.pom>=
