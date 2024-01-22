@@ -139,7 +139,7 @@ class JsmH2Deployment implements Deployment{
 
         jsmContainer.containerDefaultNetworks = [deploymentNetworkName]
         jsmContainer.createContainer()
-        log.info("\tCreated jsm container:" + jsmContainer.id)
+        log.info("*\tCreated jsm container:" + jsmContainer.id)
 
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")
