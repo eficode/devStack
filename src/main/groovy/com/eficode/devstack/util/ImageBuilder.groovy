@@ -53,8 +53,8 @@ class ImageBuilder extends DoodContainer {
         String artifactName = "atlassian-servicedesk"
         String archType = dockerClient.engineArch
         String imageTag = "$imageName:$jsmVersion-$archType"
-        containerName = imageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-imageBuilder".length())
-        containerName += "-imageBuilder"
+        containerName = "jsm-builder-$jsmVersion-$archType".replaceAll(/[^a-zA-Z0-9_.-]/, "-")
+
 
         //Check first if an image with the expected tag already exists
         if (!force) {

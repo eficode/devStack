@@ -8,8 +8,8 @@ class JenkinsAndHarborDeploymentTest extends DevStackSpec {
     def setupSpec() {
 
 
-        dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "~/.docker/"
+        //dockerRemoteHost = "https://docker.domain.se:2376"
+        //dockerCertPath = "~/.docker/"
 
 
         DevStackSpec.log = LoggerFactory.getLogger(JsmH2DeploymentTest.class)
@@ -27,7 +27,8 @@ class JenkinsAndHarborDeploymentTest extends DevStackSpec {
                 "redis",
                 "harbor-log",
                 "jenkins.domain.se",
-                "harbor.domain.se-manager"
+                "harbor.domain.se-manager",
+                "harbor.localhost-manager"
         ]
         cleanupContainerPorts = [8080, 80]
 
@@ -39,6 +40,9 @@ class JenkinsAndHarborDeploymentTest extends DevStackSpec {
         setup:
         String networkName = "custom-network-" + System.currentTimeMillis().toString()[-5..-1]
         cleanupDockerNetworkNames.add(networkName)
+
+        "rm -rf  rm -rf /tmp/harbor".execute()
+        "rm -rf  rm -rf /tmp/harbor.localhost".execute()
 
 
         JenkinsAndHarborDeployment jh = new JenkinsAndHarborDeployment(jenkinsBaseUrl, harborBaseUrl, dockerHost, certPath)
@@ -56,7 +60,7 @@ class JenkinsAndHarborDeploymentTest extends DevStackSpec {
 
         where:
         jenkinsBaseUrl             | harborBaseUrl             | dockerHost       | certPath
-        "http://jenkins.domain.se:8080" | "http://harbor.domain.se" | dockerRemoteHost | dockerCertPath
+        "http://jenkins.localhost:8080" | "http://harbor.localhost" | dockerRemoteHost | dockerCertPath
 
 
     }

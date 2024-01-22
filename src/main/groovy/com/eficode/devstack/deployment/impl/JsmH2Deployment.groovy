@@ -43,6 +43,7 @@ class JsmH2Deployment implements Deployment{
         this.containers = [new JsmContainer(dockerHost, dockerCertPath)]
         jsmContainer.containerMainPort = jsmContainer.extractPortFromUrl(jiraBaseUrl)
         jsmContainer.containerName = jsmContainer.extractDomainFromUrl(jiraBaseUrl)
+
     }
 
     JsmContainer getJsmContainer() {
@@ -138,7 +139,7 @@ class JsmH2Deployment implements Deployment{
 
         jsmContainer.containerDefaultNetworks = [deploymentNetworkName]
         jsmContainer.createContainer()
-        log.info("\tCreated jsm container:" + jsmContainer.id)
+        log.info("*\tCreated jsm container:" + jsmContainer.id)
 
         assert jsmContainer.startContainer() : "Error starting JSM container:" + jsmContainer.id
         log.info("\tStarted JSM container")
@@ -147,6 +148,8 @@ class JsmH2Deployment implements Deployment{
         String cmdJiraConfigProperties = "echo \"jira.websudo.is.disabled=true\" >> jira-config.properties; chown jira:jira jira-config.properties && echo status: \$?"
         assert jsmContainer.runBashCommandInContainer(cmdJiraConfigProperties).find {it == "status: 0"} : "Error creating jira-config.properties file"
 
+        log.info("\tWaiting for JIRA to startup")
+        jiraRest.waitForJiraToBeResponsive()
         log.info("\tSetting up local H2 database")
         assert jiraRest.setupH2Database() : "Error setting up H2 database for JSM"
         log.info("\t\tDatabase setup successfully")
