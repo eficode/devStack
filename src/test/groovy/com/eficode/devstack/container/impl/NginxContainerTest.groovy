@@ -11,8 +11,8 @@ class NginxContainerTest extends DevStackSpec {
 
     def setupSpec() {
 
-        dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "~/.docker/"
+        //dockerRemoteHost = "https://docker.domain.se:2376"
+        //dockerCertPath = "~/.docker/"
 
 
         DevStackSpec.log = LoggerFactory.getLogger(this.class)
@@ -147,7 +147,6 @@ class NginxContainerTest extends DevStackSpec {
         where:
         dockerHost       | certPath       | baseUrl
         ""               | ""             | "http://localhost"
-        dockerRemoteHost | dockerCertPath | "http://docker.domain.se"
 
 
     }

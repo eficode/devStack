@@ -167,6 +167,17 @@ trait Container {
         assert setContainerNetworks(networks): "Error setting container networks to:" + containerDefaultNetworks
 
         containerId = response.content.id
+
+        long createTimeoutMs = 10000
+        long createWaitStart = System.currentTimeMillis()
+
+        while (!created && (createWaitStart + createTimeoutMs ) > System.currentTimeMillis()) {
+            sleep(1000)
+        }
+        if (!created) {
+            log.warn("Timed out waiting for container to be created: " + containerId)
+        }
+
         return containerId
 
     }

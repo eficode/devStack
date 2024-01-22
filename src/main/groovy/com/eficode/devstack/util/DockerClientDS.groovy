@@ -10,6 +10,7 @@ import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.ExecConfig
 import de.gesellix.docker.remote.api.ExecStartConfig
 import de.gesellix.docker.remote.api.IdResponse
+import de.gesellix.docker.remote.api.ImageDeleteResponseItem
 import de.gesellix.docker.remote.api.SystemInfo
 import de.gesellix.docker.remote.api.Volume
 import de.gesellix.docker.remote.api.VolumeCreateOptions
@@ -121,11 +122,11 @@ class DockerClientDS extends DockerClientImpl {
      * @return true on success
      */
     boolean overwriteVolume(String srcVolumeName, String destinationVolumeName) {
-        ArrayList<Volume>srcVolumes = getVolumesWithName(srcVolumeName)
-        assert srcVolumes.size() == 1 : "Error identifying src volume with name:" + srcVolumeName
+        ArrayList<Volume> srcVolumes = getVolumesWithName(srcVolumeName)
+        assert srcVolumes.size() == 1: "Error identifying src volume with name:" + srcVolumeName
 
-        ArrayList<Volume>destVolumes = getVolumesWithName(destinationVolumeName)
-        assert destVolumes.size() == 1 : "Error identifying destination volume with name:" + destinationVolumeName
+        ArrayList<Volume> destVolumes = getVolumesWithName(destinationVolumeName)
+        assert destVolumes.size() == 1: "Error identifying destination volume with name:" + destinationVolumeName
 
 
         return overwriteVolume(srcVolumes.first(), destVolumes.first())
@@ -242,10 +243,25 @@ class DockerClientDS extends DockerClientImpl {
         String execId = execCreateResult.content.id
         ExecStartConfig execStartConfig = new ExecStartConfig(
                 (execConfig.detachKeys ?: false) as Boolean,
-                execConfig.tty
+                execConfig.tty,
+                execConfig.consoleSize
         )
+
+
         startExec(execId, execStartConfig, callback, timeout)
         return execCreateResult
+
+    }
+
+
+    EngineResponseContent<List<ImageDeleteResponseItem>> deleteImage(String imageName, String imageTag) {
+
+        String preExistingImage = manageImage.findImageId(imageName, imageTag)
+        if (preExistingImage && preExistingImage.startsWith("sha256")) {
+            return manageImage.rmi(preExistingImage)
+        }
+
+        return null
 
     }
 

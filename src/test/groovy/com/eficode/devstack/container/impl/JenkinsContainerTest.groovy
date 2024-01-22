@@ -14,10 +14,11 @@ class JenkinsContainerTest extends DevStackSpec{
 
     def setupSpec() {
 
-        dockerRemoteHost = "https://docker.domain.se:2376"
-        dockerCertPath = "~/.docker/"
+        dockerRemoteHost = ""
+        dockerCertPath = ""
 
         DevStackSpec.log = LoggerFactory.getLogger(JenkinsContainerTest.class)
+
 
 
         cleanupContainerNames = ["jenkins.domain.se", "jenkins-agent.domain.se", "localhost"]
@@ -95,7 +96,7 @@ class JenkinsContainerTest extends DevStackSpec{
         where:
         dockerHost       | certPath       | baseUrl
         ""               | ""             | "http://localhost:8080"
-        dockerRemoteHost | dockerCertPath | "http://jenkins.domain.se:8080"
+
 
 
 

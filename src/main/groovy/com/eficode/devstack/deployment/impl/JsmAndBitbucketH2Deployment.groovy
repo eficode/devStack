@@ -126,6 +126,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
         bitbucketH2Deployment.setBitbucketLicence(bitbucketLicense)
 
         jsmH2Deployment.deploymentNetworkName = this.containerNetworkName
+
         bitbucketH2Deployment.deploymentNetworkName = this.containerNetworkName
         jsmContainer.createBridgeNetwork(this.containerNetworkName)
 

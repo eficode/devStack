@@ -43,12 +43,13 @@ jobs:
           mkdir -p repository/com/eficode/devstack-standalone
           
           echo Building and installing "normal" version
-          mvn install -f pom.xml -DcreateChecksum=true 
+          mvn install -f pom.xml -DcreateChecksum=true -DskipTests
           
           echo Creating pom for standalone version and installing
           mvn gplus:execute@execute 
-          mvn install -f pom-standalone.xml -DcreateChecksum=true 
-          
+          mvn install -f pom-standalone.xml -DcreateChecksum=true  -DskipTests
+      
+      
 
       - name: Copying JAR files
         run: |

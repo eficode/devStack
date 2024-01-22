@@ -1,17 +1,12 @@
 package com.eficode.devstack.deployment.impl
 
 import com.eficode.devstack.DevStackSpec
-import kong.unirest.Unirest
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 
 class JsmH2DeploymentTest extends DevStackSpec {
 
 
-
-
-    @Shared
-    File projectRoot = new File(".")
 
     def setupSpec() {
 
@@ -46,7 +41,7 @@ class JsmH2DeploymentTest extends DevStackSpec {
         boolean setupSuccess = jsmDep.setupDeployment()
         then:
         setupSuccess
-        Unirest.get(baseurl).asEmpty().status == 200
+        jsmDep.jiraRest.rest.get(baseurl).asEmpty().status == 200
         jsmDep.jsmContainer.inspectContainer().networkSettings.ports.find { it.key == "$port/tcp" }
 
         //Make sure websudo was disabled
@@ -58,8 +53,6 @@ class JsmH2DeploymentTest extends DevStackSpec {
         where:
         baseurl                       | port   | dockerHost       | certPath
         "http://localhost"            | "80"   | ""               | ""
-        "http://jira2.domain.se:8082" | "8082" | dockerRemoteHost | dockerCertPath
-        "http://jira.domain.se:8080"  | "8080" | dockerRemoteHost | dockerCertPath
 
     }
 

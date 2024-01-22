@@ -8,6 +8,7 @@ import com.eficode.devstack.util.TimeMachine
 import kong.unirest.HttpResponse
 import kong.unirest.UnirestInstance
 import org.slf4j.LoggerFactory
+import spock.lang.Ignore
 
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -16,6 +17,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 
+@Ignore(value = "Generally a bit dangerous to run if not intentional as it messes with the clock on the docker engine")
 class TimeMachineSpec extends DevStackSpec {
 
 
@@ -30,7 +32,7 @@ class TimeMachineSpec extends DevStackSpec {
         cleanupContainerNames = []
         cleanupContainerPorts = []
 
-        disableCleanup = true
+        disableCleanup = false
 
 
     }

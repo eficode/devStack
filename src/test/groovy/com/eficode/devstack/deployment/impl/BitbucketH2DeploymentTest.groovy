@@ -5,12 +5,11 @@ import kong.unirest.Unirest
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 
-class BitbucketH2DeploymentTest extends DevStackSpec{
-
+class BitbucketH2DeploymentTest extends DevStackSpec {
 
 
     @Shared
-    File bitbucketLicenseFile = new File("resources/bitbucket/licenses/bitbucketLicense")
+    File bitbucketLicenseFile = new File(System.getProperty("user.home") + "/.licenses/bitbucket/bitbucket.license")
 
     def setupSpec() {
 
@@ -21,7 +20,7 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
 
         DevStackSpec.log = LoggerFactory.getLogger(BitbucketH2DeploymentTest.class)
 
-        cleanupContainerNames = ["bitbucket.domain.se", "bitbucket2.domain.se" , "localhost"]
+        cleanupContainerNames = ["bitbucket.domain.se", "bitbucket2.domain.se", "localhost"]
         cleanupContainerPorts = [7990, 7992, 80]
 
         disableCleanup = false
@@ -31,7 +30,7 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
     def "def setupDeployment"(String dockerHost, String certPath, String baseUrl) {
 
         setup:
-        BitbucketH2Deployment  bitbucketDep = new BitbucketH2Deployment(baseUrl, dockerHost, certPath)
+        BitbucketH2Deployment bitbucketDep = new BitbucketH2Deployment(baseUrl, dockerHost, certPath)
         bitbucketDep.setBitbucketLicence(bitbucketLicenseFile)
 
         String port = bitbucketDep.bitbucketContainer.extractPortFromUrl(baseUrl)
@@ -43,17 +42,13 @@ class BitbucketH2DeploymentTest extends DevStackSpec{
         then:
         setupSuccess
         Unirest.get(baseUrl).asEmpty().status == 200
-        bitbucketDep.bitbucketContainer.inspectContainer().networkSettings.ports.find {it.key == "$port/tcp"}
+        bitbucketDep.bitbucketContainer.inspectContainer().networkSettings.ports.find { it.key == "$port/tcp" }
 
 
         where:
-        dockerHost       | certPath       | baseUrl
-        ""               | ""             | "http://localhost"
-        dockerRemoteHost | dockerCertPath | "http://bitbucket.domain.se:7990"
-        dockerRemoteHost | dockerCertPath | "http://bitbucket2.domain.se:7992"
-
-
-
+        dockerHost | certPath | baseUrl
+        ""         | ""       | "http://localhost"
+        ""         | ""       | "http://bitbucket.localhost:7992"
 
 
     }
