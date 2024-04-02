@@ -190,8 +190,9 @@ class HarborManagerContainer extends DoodContainer {
     boolean modifyInstallYml() {
 
 
-        Path tmpDir = Files.createTempDirectory("harbor-conf")
-        String tmpDirPath = tmpDir.toFile().absolutePath
+        File tmpDir = File.createTempDir("harbor-conf")
+
+        String tmpDirPath = tmpDir.absolutePath
 
 
         ArrayList<File> files = copyFilesFromContainer("${installPath}/harbor/harbor.yml.tmpl", tmpDirPath + "/")

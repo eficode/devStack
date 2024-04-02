@@ -112,6 +112,8 @@ class JsmH2Deployment implements Deployment{
         if (useSnapshotIfAvailable && jsmContainer.created && jsmContainer.getSnapshotVolume()) {
             log.info("\tSnapshot is available, will restore that instead of setting up new JSM")
             assert jsmContainer.restoreJiraHomeSnapshot(): "Error resting snapshot for " + jsmContainer.shortId
+            log.info("\t\tSnapshot restored, waiting for jira to become responsive")
+            jiraRest.waitForJiraToBeResponsive(120)
             log.info("\t" * 2 + "Finished restoring JSM snapshot")
             return true
         } else {

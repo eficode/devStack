@@ -14,19 +14,22 @@
     <description>A series of scripts for setting up common developer application suites</description>
 
     <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
-        <groovy.major.version>3.0</groovy.major.version>
+        <java.version>11</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <groovy.major.version>4.0</groovy.major.version>
+        <groovy.groupId>org.apache.groovy</groovy.groupId>
         <groovy.version>4.0.18</groovy.version>
-        <spock-core.version>2.3-groovy-4.0</spock-core.version>
+        <spock-core.version>2.3-groovy-${groovy.major.version}</spock-core.version>
         <jiraShortcuts.version>2.0.3-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
         <bitbucketinstancemanager.version>0.0.3-SNAPSHOT-groovy-3.0</bitbucketinstancemanager.version>
+        <jirainstancemanager.version>2.1.4</jirainstancemanager.version>
     </properties>
 
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.groovy</groupId>
+            <groupId>${groovy.groupId}</groupId>
             <artifactId>groovy</artifactId>
             <version>${groovy.version}</version>
         </dependency>
@@ -37,13 +40,13 @@
             <version>2.15.3</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.groovy</groupId>
+            <groupId>${groovy.groupId}</groupId>
             <artifactId>groovy-json</artifactId>
             <version>${groovy.version}</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.codehaus.groovy/groovy-ant -->
         <dependency>
-            <groupId>org.apache.groovy</groupId>
+            <groupId>${groovy.groupId}</groupId>
             <artifactId>groovy-ant</artifactId>
             <version>${groovy.version}</version>
         </dependency>
@@ -78,7 +81,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
-            <version>2.0.0</version>
+            <version>2.0.1</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-compress -->
         <dependency>
@@ -96,7 +99,7 @@
         <dependency>
             <groupId>com.eficode.atlassian</groupId>
             <artifactId>jirainstancemanager</artifactId>
-            <version>2.1.1</version>
+            <version>${jirainstancemanager.version}</version>
         </dependency>
 
 
@@ -104,7 +107,7 @@
         <dependency>
             <groupId>de.gesellix</groupId>
             <artifactId>docker-client</artifactId>
-            <version>2023-12-01T19-40-00</version>
+            <version>2024-02-10T12-30-00</version>
         </dependency>
 
 
@@ -201,7 +204,7 @@
                 </executions>
                 <dependencies>
                     <dependency>
-                        <groupId>org.apache.groovy</groupId>
+                        <groupId>${groovy.groupId}</groupId>
                         <artifactId>groovy</artifactId>
                         <version>${groovy.version}</version>
                     </dependency>

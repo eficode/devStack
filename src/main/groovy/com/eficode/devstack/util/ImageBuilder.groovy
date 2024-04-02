@@ -3,6 +3,7 @@ import com.eficode.devstack.container.impl.DoodContainer
 import de.gesellix.docker.remote.api.ImageSummary
 import java.util.concurrent.TimeoutException
 
+
 /**
  * A utility class intended to build docker images so that they match the docker engines CPU architecture
  *
@@ -14,6 +15,7 @@ class ImageBuilder extends DoodContainer {
     LinkedHashMap<String, String> builderCommands = [:]
     Map<String, ArrayList<String>>builderOut = [:]
     long cmdTimeoutS = 800 //Will timeout individual container commands after this many seconds
+
 
     ImageBuilder(String dockerHost, String dockerCertPath) {
         assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
@@ -46,13 +48,13 @@ class ImageBuilder extends DoodContainer {
      * @return
      */
     ImageSummary buildJsm(String jsmVersion, boolean force = false){
+
         String imageName = "atlassian/jira-servicemanagement"
         String artifactName = "atlassian-servicedesk"
         String archType = dockerClient.engineArch
-        String archTypeSuffix = archType == "x86_64" ? "" : "-$archType"
-        String imageTag = "$imageName:$jsmVersion$archTypeSuffix"
-        containerName = imageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"jsm-builder-".length())
-        containerName += "jsm-builder-" + containerName
+        String imageTag = "$imageName:$jsmVersion-$archType"
+        containerName = "jsm-builder-$jsmVersion-$archType".replaceAll(/[^a-zA-Z0-9_.-]/, "-")
+
 
         //Check first if an image with the expected tag already exists
         if (!force) {
@@ -74,56 +76,7 @@ class ImageBuilder extends DoodContainer {
         ImageSummary newImage =  images.find {it.repoTags == [imageTag]}
         log.debug("\tFinished building image:" + imageTag + ", ID:" + newImage.id[7..17])
         return newImage
-    }
 
-    ImageSummary buildFaketimeJsm(String jsmVersion, boolean force = false){
-        String imageName = "atlassian/jira-servicemanagement"
-        String artifactName = "atlassian-servicedesk"
-        String archType = dockerClient.engineArch
-        String archTypeSuffix = archType == "x86_64" ? "" : "-$archType"
-        String imageTag = "$imageName:$jsmVersion$archTypeSuffix"
-        String faketimeRoot = "/faketimebuild"
-        String faketimeDockerFilePath = "$faketimeRoot/Dockerfile"
-        String faketimeAgentFilePath = "$faketimeRoot/faketime.cpp"
-        String faketimeImageTag = "$imageName-faketime:$jsmVersion$archTypeSuffix"
-        String faketimecpp = getClass().getResourceAsStream("/faketime.cpp").text
-        containerName = faketimeImageTag.replaceAll(/[^a-zA-Z0-9_.-]/, "-").take(128-"-IB".length())
-        containerName += "-IB"
-
-        log.info("my name is now $containerName")
-
-        //Check first if an image with the expected tag already exists
-        if (!force) {
-            ArrayList<ImageSummary> existingImages = dockerClient.images().content
-            ImageSummary existingImage =  existingImages.find {it.repoTags == [faketimeImageTag]}
-            if (existingImage) {
-                return existingImage
-            }
-        }
-
-        String faketimeDockerFile = """
-        FROM $imageTag
-        WORKDIR /
-        RUN apt-get update && apt-get install -y wget g++ make
-        # RUN wget https://github.com/odnoklassniki/jvmti-tools/raw/master/faketime/faketime.cpp
-        COPY faketime.cpp .
-        RUN g++ -O2 -fPIC -shared -I \$JAVA_HOME/include -I \$JAVA_HOME/include/linux -olibfaketime.so faketime.cpp
-
-        ENV JVM_SUPPORT_RECOMMENDED_ARGS="-agentpath:/libfaketime.so=+2592000000"
-        """
-
-
-        putBuilderCommand("mkdir -p $faketimeRoot", "")
-        putBuilderCommand("cat > $faketimeDockerFilePath <<- 'EOF'\n" + faketimeDockerFile + "\nEOF", "")
-        putBuilderCommand("cat > $faketimeAgentFilePath <<- 'EOF'\n" + faketimecpp + "\nEOF", "")
-        putBuilderCommand("cd $faketimeRoot && docker build --tag $faketimeImageTag --build-arg JIRA_VERSION=$jsmVersion --build-arg ARTEFACT_NAME=$artifactName . && echo status:\$?", "status:0")
-        putBuilderCommand("pkill tail", "")
-
-        assert build() : "Error building the image."
-
-        ArrayList<ImageSummary> images = dockerClient.images().content
-        ImageSummary newImage = images.find {it.repoTags == [faketimeImageTag]}
-        return newImage
     }
 
 
@@ -186,6 +139,7 @@ class ImageBuilder extends DoodContainer {
 
     @Override
     boolean runAfterDockerSetup(){
+
 
         builderCommands.each {cmd, expectedLastOut ->
             log.info("Running container command:" + cmd)

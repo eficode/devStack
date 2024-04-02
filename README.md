@@ -39,7 +39,7 @@ SubDeployments are simply a collection of deployments used by a more complex dep
 ## Utils
 
 These are classes mainly intended to be used by Container/Deployment-classes when massaging of the containers are needed for example. 
-Currently, [ImageBuilder.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FImageBuilder.groovy) dynamically builds Atlassian images on the fly.
+Currently, [ImageBuilder.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FImageBuilder.groovy) dynamically builds Atlassian images for non x86 architectures on the fly.
 [TimeMachine.groovy](src%2Fmain%2Fgroovy%2Fcom%2Feficode%2Fdevstack%2Futil%2FTimeMachine.groovy) changes the apparent time for all
 containers sharing a Docker Engine, intended for testing date changes.
 
@@ -156,3 +156,8 @@ mvn dependency:get -Dartifact=com.eficode:devstack-standalone:2.3.9-SNAPSHOT -Dr
 
 * 2.3.9
   * From now on two artifacts will be generated, devstack and devstack-standalone and the classifier standalone is deprecated
+
+# Requirements
+The devstack packages are mainly built for JAVA 17 but should work with java 8+ and should work with groovy 
+ * 3.x >= 3.0.17
+ * 4.x >= 4.0.11
