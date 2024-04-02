@@ -107,7 +107,7 @@
         <dependency>
             <groupId>de.gesellix</groupId>
             <artifactId>docker-client</artifactId>
-            <version>2024-02-10T12-30-00</version>
+            <version>2024-03-16T11-35-00</version>
         </dependency>
 
 

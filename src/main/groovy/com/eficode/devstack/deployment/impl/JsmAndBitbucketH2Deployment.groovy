@@ -123,6 +123,7 @@ class JsmAndBitbucketH2Deployment implements Deployment {
         assert bitbucketLicense: "Error no Bitbucket License has been setup"
 
         jsmH2Deployment.setJiraLicense(jiraLicense)
+        jsmH2Deployment.jsmContainer.enableAppUpload()
         bitbucketH2Deployment.setBitbucketLicence(bitbucketLicense)
 
         jsmH2Deployment.deploymentNetworkName = this.containerNetworkName

@@ -54,7 +54,7 @@ class ExamplesTest extends DevStackSpec{
 
         groovyContainer.prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock") //Mount docker socket from host
         groovyContainer.containerDefaultNetworks = ["jsm"] // Make sure groovy container is on the same network as other containers
-        groovyContainer.setGroovyVersion("3.0.14")
+        groovyContainer.setGroovyVersion("4.0.18")
         groovyContainer.stopAndRemoveContainer()
         groovyContainer.createSleepyContainer()
         groovyContainer.startContainer()
@@ -92,7 +92,7 @@ class ExamplesTest extends DevStackSpec{
 
         groovyContainer.prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock") //Mount docker socket from host
         groovyContainer.containerDefaultNetworks = ["jsm_and_bitbucket"] // Make sure groovy container is on the same network as other containers
-        groovyContainer.setGroovyVersion("3.0.14")
+        groovyContainer.setGroovyVersion("4.0.18")
         groovyContainer.stopAndRemoveContainer()
         groovyContainer.createSleepyContainer()
         groovyContainer.startContainer()
