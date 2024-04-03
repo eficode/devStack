@@ -116,7 +116,7 @@ class JsmContainer implements Container {
         }
 
         if (jvmSupportRecommendedArgs) {
-            containerCreateRequest.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=" + jvmSupportRecommendedArgs.join(" "))
+             containerCreateRequest.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=" + jvmSupportRecommendedArgs.join(" "))
         }
 
         return containerCreateRequest

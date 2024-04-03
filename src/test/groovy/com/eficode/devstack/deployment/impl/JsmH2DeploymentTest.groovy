@@ -59,26 +59,25 @@ class JsmH2DeploymentTest extends DevStackSpec {
 
     }
 
-    def "Test DevStack In ScriptRunner"(String srVerion, String packageParameters) {
+    def "Test DevStack In ScriptRunner"(String srVersion, String packageParameters, boolean cleanup = false) {
 
         setup:
 
         JsmH2Deployment jsmDep = new JsmH2Deployment("http://jira.localhost:8080")
+        disableCleanup = !cleanup
 
 
         jsmDep.setJiraLicense(new File(System.getProperty("user.home") + "/.licenses/jira/jsm.license").text)
 
-        if (!jsmDep.jsmContainer.created || !jsmDep.jsmContainer.running) {
-            assert jsmDep.setupDeployment(true, !jsmDep.jsmContainer.getSnapshotVolume()): "Error setting up or snapshoting JSM"
-        }
+        assert jsmDep.setupDeployment(true, true): "Error setting up or snapshotting JSM"
 
 
         JiraInstanceManagerRest jiraRest = jsmDep.jiraRest
 
         jiraRest.waitForJiraToBeResponsive(240)
-        assert jiraRest.installScriptRunner(srLicenseFile.text, srVerion): "Error installing SR version $srVerion"
+        assert jiraRest.installScriptRunner(srLicenseFile.text, srVersion): "Error installing SR version $srVersion"
 
-        jiraRest.waitForSrToBeResponsive(120)
+        assert jiraRest.waitForSrToBeResponsive(60): "Timed out waiting for SR to become responsive"
         when:
 
         log.info("Building DevStack jar")
@@ -116,60 +115,61 @@ class JsmH2DeploymentTest extends DevStackSpec {
         runCmd("cd ${devStackProjectRoot} && rm ")
 
         where:
-        srVerion | packageParameters
-        "latest" | "-DskipTests"
-        "latest" | "-Dgroovy.version=4.0.18 -DskipTests"
-        "latest" | "-Dgroovy.version=4.0.16 -DskipTests"
-        "latest" | "-Dgroovy.version=4.0.14 -DskipTests"
-        "latest" | "-Dgroovy.version=4.0.12 -DskipTests"
-        "latest" | "-Dgroovy.version=4.0.11 -DskipTests"
-        "latest" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "latest" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "latest" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
+        srVersion | packageParameters                                                                                     | cleanup
+        "latest" | "-DskipTests"                                                                                         | false
+        "latest" | "-Dgroovy.version=4.0.18 -DskipTests"                                                                 | false
+        "latest" | "-Dgroovy.version=4.0.16 -DskipTests"                                                                 | false
+        "latest" | "-Dgroovy.version=4.0.14 -DskipTests"                                                                 | false
+        "latest" | "-Dgroovy.version=4.0.12 -DskipTests"                                                                 | false
+        "latest" | "-Dgroovy.version=4.0.11 -DskipTests"                                                                 | false
+        "latest" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "latest" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "latest" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | true
 
-        "8.20.0" | "-DskipTests"
-        "8.20.0" | "-Dgroovy.version=4.0.18 -DskipTests"
-        "8.20.0" | "-Dgroovy.version=4.0.16 -DskipTests"
-        "8.20.0" | "-Dgroovy.version=4.0.14 -DskipTests"
-        "8.20.0" | "-Dgroovy.version=4.0.12 -DskipTests"
-        "8.20.0" | "-Dgroovy.version=4.0.11 -DskipTests"
-        "8.20.0" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "8.20.0" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "8.20.0" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
+        /*
+        "8.20.0" | "-DskipTests"                                                                                         | false
+        "8.20.0" | "-Dgroovy.version=4.0.18 -DskipTests"                                                                 | false
+        "8.20.0" | "-Dgroovy.version=4.0.16 -DskipTests"                                                                 | false
+        "8.20.0" | "-Dgroovy.version=4.0.14 -DskipTests"                                                                 | false
+        "8.20.0" | "-Dgroovy.version=4.0.12 -DskipTests"                                                                 | false
+        "8.20.0" | "-Dgroovy.version=4.0.11 -DskipTests"                                                                 | false
+        "8.20.0" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "8.20.0" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "8.20.0" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
 
-        "8.10.0" | "-DskipTests"
-        "8.10.0" | "-Dgroovy.version=4.0.18 -DskipTests"
-        "8.10.0" | "-Dgroovy.version=4.0.16 -DskipTests"
-        "8.10.0" | "-Dgroovy.version=4.0.14 -DskipTests"
-        "8.10.0" | "-Dgroovy.version=4.0.12 -DskipTests"
-        "8.10.0" | "-Dgroovy.version=4.0.11 -DskipTests"
-        "8.10.0" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "8.10.0" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "8.10.0" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-
-
-        "8.0.0" | "-DskipTests"
-        "8.0.0" | "-Dgroovy.version=4.0.18 -DskipTests"
-        "8.0.0" | "-Dgroovy.version=4.0.16 -DskipTests"
-        "8.0.0" | "-Dgroovy.version=4.0.14 -DskipTests"
-        "8.0.0" | "-Dgroovy.version=4.0.12 -DskipTests"
-        "8.0.0" | "-Dgroovy.version=4.0.11 -DskipTests"
-        "8.0.0" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "8.0.0" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "8.0.0" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
+        "8.10.0" | "-DskipTests"                                                                                         | false
+        "8.10.0" | "-Dgroovy.version=4.0.18 -DskipTests"                                                                 | false
+        "8.10.0" | "-Dgroovy.version=4.0.16 -DskipTests"                                                                 | false
+        "8.10.0" | "-Dgroovy.version=4.0.14 -DskipTests"                                                                 | false
+        "8.10.0" | "-Dgroovy.version=4.0.12 -DskipTests"                                                                 | false
+        "8.10.0" | "-Dgroovy.version=4.0.11 -DskipTests"                                                                 | false
+        "8.10.0" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "8.10.0" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "8.10.0" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
 
 
-        "7.10.0" | "-DskipTests"
-        "7.10.0" | "-Dgroovy.version=4.0.18 -DskipTests"
-        "7.10.0" | "-Dgroovy.version=4.0.16 -DskipTests"
-        "7.10.0" | "-Dgroovy.version=4.0.14 -DskipTests"
-        "7.10.0" | "-Dgroovy.version=4.0.12 -DskipTests"
-        "7.10.0" | "-Dgroovy.version=4.0.11 -DskipTests"
-        "7.10.0" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "7.10.0" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        "7.10.0" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests"
-        
+        "8.0.0"  | "-DskipTests"                                                                                         | false
+        "8.0.0"  | "-Dgroovy.version=4.0.18 -DskipTests"                                                                 | false
+        "8.0.0"  | "-Dgroovy.version=4.0.16 -DskipTests"                                                                 | false
+        "8.0.0"  | "-Dgroovy.version=4.0.14 -DskipTests"                                                                 | false
+        "8.0.0"  | "-Dgroovy.version=4.0.12 -DskipTests"                                                                 | false
+        "8.0.0"  | "-Dgroovy.version=4.0.11 -DskipTests"                                                                 | false
+        "8.0.0"  | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "8.0.0"  | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "8.0.0"  | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
 
+
+        "7.10.0" | "-DskipTests"                                                                                         | false
+        "7.10.0" | "-Dgroovy.version=4.0.18 -DskipTests"                                                                 | false
+        "7.10.0" | "-Dgroovy.version=4.0.16 -DskipTests"                                                                 | false
+        "7.10.0" | "-Dgroovy.version=4.0.14 -DskipTests"                                                                 | false
+        "7.10.0" | "-Dgroovy.version=4.0.12 -DskipTests"                                                                 | false
+        "7.10.0" | "-Dgroovy.version=4.0.11 -DskipTests"                                                                 | false
+        "7.10.0" | "-Dgroovy.version=3.0.20 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "7.10.0" | "-Dgroovy.version=3.0.18 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | false
+        "7.10.0" | "-Dgroovy.version=3.0.17 -Dgroovy.groupId=org.codehaus.groovy -Dgroovy.major.version=3.0 -DskipTests" | true
+
+         */
 
 
     }

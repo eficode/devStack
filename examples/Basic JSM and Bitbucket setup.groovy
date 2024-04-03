@@ -1,5 +1,5 @@
 @GrabResolver(name = 'github', root = 'https://github.com/eficode/DevStack/raw/packages/repository/')
-@Grab(group = 'com.eficode', module = 'devstack-standalone', version = '2.3.13')
+@Grab(group = 'com.eficode', module = "devstack-standalone", version = '2.3.14')
 @Grab(group='org.slf4j', module='slf4j-simple', version='1.7.36', scope='test')
 @GrabConfig(systemClassLoader=true, initContextClassLoader=true)
 

@@ -176,7 +176,7 @@ class HarborManagerContainer extends DoodContainer {
         yamlFile.write(  objectMapper.writeValueAsString(modifiedYml))
 
         assert copyFileToContainer(yamlFile.absolutePath, installPath + "/harbor/"): "Error copying updated YAML file to container"
-        tmpDir.deleteDir()
+        tmpDir.toFile().deleteDir()
 
         log.info("\tFinished customizing docker-compose file")
 

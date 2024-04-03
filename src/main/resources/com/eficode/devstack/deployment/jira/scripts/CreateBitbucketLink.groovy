@@ -1,4 +1,4 @@
-package com.eficode.atlassian.JiraShortcuts.test.resources.jiraLocalScripts
+package com.eficode.devstack.deployment.jira.scripts
 
 /**
  * A script executed in JIRA by Scriptrunner
