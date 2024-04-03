@@ -176,7 +176,7 @@ class HarborManagerContainer extends DoodContainer {
         yamlFile.write(  objectMapper.writeValueAsString(modifiedYml))
 
         assert copyFileToContainer(yamlFile.absolutePath, installPath + "/harbor/"): "Error copying updated YAML file to container"
-        tmpDir.deleteDir()
+        tmpDir.toFile().deleteDir()
 
         log.info("\tFinished customizing docker-compose file")
 
@@ -190,8 +190,9 @@ class HarborManagerContainer extends DoodContainer {
     boolean modifyInstallYml() {
 
 
-        Path tmpDir = Files.createTempDirectory("harbor-conf")
-        String tmpDirPath = tmpDir.toFile().absolutePath
+        File tmpDir = File.createTempDir("harbor-conf")
+
+        String tmpDirPath = tmpDir.absolutePath
 
 
         ArrayList<File> files = copyFilesFromContainer("${installPath}/harbor/harbor.yml.tmpl", tmpDirPath + "/")

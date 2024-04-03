@@ -9,11 +9,14 @@ import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.Network
 import org.apache.commons.io.FileUtils
+import org.apache.commons.io.IOCase
+import org.apache.commons.io.filefilter.NameFileFilter
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
+import java.lang.reflect.Field
 import java.util.regex.Matcher
 
 class DevStackSpec extends Specification {
@@ -241,6 +244,111 @@ class DevStackSpec extends Specification {
 
         return newText
 
+    }
+
+
+    /**
+     * Starts in CWD and looks for pom.xml, traverse upwards in file tree until it is found.
+     * If "/" is reached, null is returned
+     * @return File representing project root dir
+     */
+    static File getDevStackProjectRoot() {
+
+        log.info("Detecting Project root based on pom.xml file")
+        File cwd = new File(".").getCanonicalFile()
+        File projectRoot = null
+
+        while (!projectRoot){
+
+            log.debug("\tChecking if ${cwd.canonicalPath} is Project root")
+            File pomFile = cwd.listFiles().find {it.name == "pom.xml"}
+
+            if (pomFile) {
+                log.debug("\t" * 2 + "Found root!")
+                projectRoot = cwd
+            }else {
+                log.debug("\t" * 2 + "This is not root, testing parent")
+
+                cwd = cwd.parentFile
+
+                if (!cwd) {
+                    log.warn("\t" * 2 + cwd?.canonicalPath + " has no parent")
+                    log.warn("\tCould not find Project root")
+                    return null
+                }
+            }
+
+        }
+
+
+        return projectRoot.getCanonicalFile()
+    }
+
+
+    Boolean runDevstackMvnClean() {
+
+        File projectRoot = getDevStackProjectRoot()
+
+        ArrayList<String> mvnOut = runCmd("cd '${projectRoot.canonicalPath}' && mvn clean && echo Exit Status: \$?")
+
+        return mvnOut.any {it.contains("Status: 0")}
+
+    }
+
+    File buildDevStackJar(Boolean buildStandalone = false, String extraPackageParemeters = "-DskipTests") {
+
+        File projectRoot = getDevStackProjectRoot()
+
+        String cmd = "cd '${projectRoot.canonicalPath}'"
+
+
+        if (buildStandalone) {
+            cmd += " mvn gplus:execute@execute && mvn clean && mvn package -f pom-standalone.xml $extraPackageParemeters"
+        }else {
+            cmd += " mvn clean && mvn package $extraPackageParemeters"
+        }
+
+        log.info("Building devstack")
+        ArrayList<String> mvnOut = runCmd(cmd)
+
+        String jarPath = mvnOut.find {logRow ->
+            logRow.contains("Building jar") &&
+                    ! logRow.contains("-sources") &&
+                    logRow.endsWith(".jar") &&
+                    logRow.substring(logRow.lastIndexOf("/") + 1).startsWith("devstack-") &&
+                    (logRow.contains("standalone") || !buildStandalone)
+        }
+        if (!jarPath) {
+            mvnOut.each {log.warn(it)}
+        }
+        assert jarPath : "Error determining jar path after building DevStack"
+        jarPath = jarPath.substring(jarPath.indexOf("/"))
+        assert jarPath : "Error determining jar path after building DevStack"
+
+        File jarFile = new File(jarPath)
+        log.info("\tBuilt jar:" + jarFile.canonicalPath)
+
+        return jarFile
+
+
+    }
+
+    static ArrayList<String> runCmd(String cmd, ArrayList<String> envs = []) {
+
+        StringBuffer appenderStd = new StringBuffer()
+        //StringBuffer appenderErr = new StringBuffer()
+
+
+        Process proc = ["bash", "-c", cmd].execute(envs ?: null, null)
+
+        proc.waitForProcessOutput(appenderStd, appenderStd)
+
+
+
+        //Map out = ["stdOut": appenderStd.toString().split("\n"), "errOut": appenderErr.toString().split("\n")]
+
+
+        return appenderStd.toString().split("\n")
     }
 
 }

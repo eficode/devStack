@@ -107,7 +107,7 @@ class JenkinsAndHarborDeployment implements Deployment {
 
         if (jenkinsFuture.done) {
             log.info("\tJenkins deployment finished successfully:" + jenkinsFuture.get())
-            log.info("\t\tJenkins URL:" + jenkinsDeployment.baseUrl)
+            log.info("\t\tJenkins URL:" + getJenkinsDeployment().baseUrl)
             log.info("\t\tJenkins Admin PW:" + jenkinsContainer.initialAdminPassword)
         }
 

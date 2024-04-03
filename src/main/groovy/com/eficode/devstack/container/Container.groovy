@@ -246,7 +246,7 @@ trait Container {
      * @return
      */
     String getShortId() {
-        return getContainerId().substring(0,12)
+        return getContainerId()?.substring(0,12)
     }
 
     String getId() {
@@ -838,8 +838,7 @@ trait Container {
      */
     static ArrayList<String> runCmdAndRm(String cmd, long timeoutMs, ArrayList<Map> mounts = [], String dockerHost = "", String dockerCertPath = "") {
 
-
-        return runCmdAndRm(["/bin/sh", "-c", cmd], timeoutMs, mounts, dockerHost, dockerCertPath)
+        return this.runCmdAndRm(["/bin/sh", "-c", cmd], timeoutMs, mounts, dockerHost, dockerCertPath)
     }
 
 

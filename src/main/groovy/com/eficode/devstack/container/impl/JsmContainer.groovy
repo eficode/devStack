@@ -23,6 +23,7 @@ class JsmContainer implements Container {
     long jvmMaxRam = 6000
 
     private String debugPort //Contains the port used for JVM debug
+    ArrayList<String> jvmSupportRecommendedArgs = [] //Used for setting application properties: https://confluence.atlassian.com/adminjiraserver/setting-properties-and-options-on-startup-938847831.html
 
     JsmContainer(String dockerHost = "", String dockerCertPath = "") {
         if (dockerHost && dockerCertPath) {
@@ -36,8 +37,18 @@ class JsmContainer implements Container {
      */
     void enableJvmDebug(String portNr = "5005") {
 
-        assert !created: "Error, cant enable JVM Debug for a container that has already been crated"
+        assert !created: "Error, cant enable JVM Debug for a container that has already been created"
         debugPort = portNr
+        jvmSupportRecommendedArgs += ["-Xdebug", "-Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n"]
+    }
+
+    /**
+     * Enables upload of Apps so that not only Marketplace apps can be installed
+     * See: https://jira.atlassian.com/browse/JRASERVER-77129
+     */
+    void enableAppUpload() {
+        assert !created: "Error, cant enable App Upload for a container that has already been created"
+        jvmSupportRecommendedArgs += ["-Dupm.plugin.upload.enabled=true"]
     }
 
     /**
@@ -84,7 +95,6 @@ class JsmContainer implements Container {
 
             c.image = image
             c.hostname = containerName
-            c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "ATL_TOMCAT_PORT=" + containerMainPort] + customEnvVar
 
 
             c.exposedPorts = [(containerMainPort + "/tcp"): [:]]
@@ -94,15 +104,19 @@ class JsmContainer implements Container {
                 if (debugPort) {
                     h.portBindings.put((debugPort + "/tcp"), [new PortBinding("0.0.0.0", (debugPort))])
                     c.exposedPorts.put((debugPort + "/tcp"), [:])
-                    c.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=-Xdebug -Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n".toString())
                 }
 
 
                 h.mounts = this.preparedMounts
             }
 
+            c.env = ["JVM_MAXIMUM_MEMORY=" + jvmMaxRam + "m", "JVM_MINIMUM_MEMORY=" + ((jvmMaxRam / 2) as String) + "m", "ATL_TOMCAT_PORT=" + containerMainPort] + customEnvVar
 
 
+        }
+
+        if (jvmSupportRecommendedArgs) {
+             containerCreateRequest.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=" + jvmSupportRecommendedArgs.join(" "))
         }
 
         return containerCreateRequest
@@ -136,11 +150,16 @@ class JsmContainer implements Container {
             startContainer()
         }
 
+
         return success
 
     }
 
     Volume getSnapshotVolume(String snapshotName = "") {
+
+        if (!created) {
+            return null
+        }
         snapshotName = snapshotName ?: shortId + "-clone"
 
         ArrayList<Volume> volumes = dockerClient.getVolumesWithName(snapshotName)

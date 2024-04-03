@@ -156,3 +156,8 @@ mvn dependency:get -Dartifact=com.eficode:devstack-standalone:2.3.9-SNAPSHOT -Dr
 
 * 2.3.9
   * From now on two artifacts will be generated, devstack and devstack-standalone and the classifier standalone is deprecated
+
+# Requirements
+The devstack packages are mainly built for JAVA 17 but should work with java 8+ and should work with groovy 
+ * 3.x >= 3.0.17
+ * 4.x >= 4.0.11
