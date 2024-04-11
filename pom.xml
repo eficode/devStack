@@ -23,7 +23,7 @@
         <spock-core.version>2.3-groovy-${groovy.major.version}</spock-core.version>
         <jiraShortcuts.version>2.0.3-SNAPSHOT-groovy-3.0</jiraShortcuts.version>
         <bitbucketinstancemanager.version>0.0.3-SNAPSHOT-groovy-3.0</bitbucketinstancemanager.version>
-        <jirainstancemanager.version>2.1.5</jirainstancemanager.version>
+        <jirainstancemanager.version>2.1.6-SNAPSHOT</jirainstancemanager.version>
     </properties>
 
 
