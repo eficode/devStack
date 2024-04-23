@@ -23,7 +23,8 @@ class JsmContainer implements Container {
     long jvmMaxRam = 6000
 
     private String debugPort //Contains the port used for JVM debug
-    ArrayList<String> jvmSupportRecommendedArgs = [] //Used for setting application properties: https://confluence.atlassian.com/adminjiraserver/setting-properties-and-options-on-startup-938847831.html
+    ArrayList<String> jvmSupportRecommendedArgs = []
+    //Used for setting application properties: https://confluence.atlassian.com/adminjiraserver/setting-properties-and-options-on-startup-938847831.html
 
     JsmContainer(String dockerHost = "", String dockerCertPath = "") {
         if (dockerHost && dockerCertPath) {
@@ -37,6 +38,7 @@ class JsmContainer implements Container {
      */
     void enableJvmDebug(String portNr = "5005") {
 
+
         assert !created: "Error, cant enable JVM Debug for a container that has already been created"
         debugPort = portNr
         jvmSupportRecommendedArgs += ["-Xdebug", "-Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n"]
@@ -47,8 +49,26 @@ class JsmContainer implements Container {
      * See: https://jira.atlassian.com/browse/JRASERVER-77129
      */
     void enableAppUpload() {
+
+        log.info("Enabling upload of Custom JIRA Apps")
+        if (appAppUploadEnabled){
+            log.debug("\tApp upload is already enabled")
+        }
         assert !created: "Error, cant enable App Upload for a container that has already been created"
         jvmSupportRecommendedArgs += ["-Dupm.plugin.upload.enabled=true"]
+    }
+
+    /**
+     * Checks if App Upload is enabled for a container that has been created
+     * @return
+     */
+    boolean isAppAppUploadEnabled() {
+
+        if (!created) {
+            return false
+        }
+        return inspectContainer()?.getConfig()?.env?.toString()?.contains("-Dupm.plugin.upload.enabled=true") ?: false
+
     }
 
     /**
@@ -116,7 +136,7 @@ class JsmContainer implements Container {
         }
 
         if (jvmSupportRecommendedArgs) {
-             containerCreateRequest.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=" + jvmSupportRecommendedArgs.join(" "))
+            containerCreateRequest.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=" + jvmSupportRecommendedArgs.join(" "))
         }
 
         return containerCreateRequest
@@ -129,7 +149,7 @@ class JsmContainer implements Container {
      * @return
      */
     MountPoint getJiraHomeMountPoint() {
-        return getMounts().find {it.destination == "/var/atlassian/application-data/jira"}
+        return getMounts().find { it.destination == "/var/atlassian/application-data/jira" }
     }
 
 
@@ -145,7 +165,7 @@ class JsmContainer implements Container {
         stopContainer()
         snapshotName = snapshotName ?: shortId + "-clone"
 
-        boolean success =  dockerClient.overwriteVolume(snapshotName, jiraHomeMountPoint.name)
+        boolean success = dockerClient.overwriteVolume(snapshotName, jiraHomeMountPoint.name)
         if (wasRunning) {
             startContainer()
         }
@@ -166,9 +186,9 @@ class JsmContainer implements Container {
 
         if (volumes.size() == 1) {
             return volumes.first()
-        }else if (volumes.isEmpty()) {
+        } else if (volumes.isEmpty()) {
             return null
-        }else {
+        } else {
             throw new InputMismatchException("Error finding snapshot volume:" + snapshotName)
         }
 
@@ -190,7 +210,7 @@ class JsmContainer implements Container {
         snapshotName = snapshotName ?: shortId + "-clone"
 
         ArrayList<Volume> existingVolumes = dockerClient.getVolumesWithName(snapshotName)
-        existingVolumes.each {existingVolume ->
+        existingVolumes.each { existingVolume ->
             log.debug("\tRemoving existing snapshot volume:" + existingVolume.name)
             dockerClient.manageVolume.rmVolume(existingVolume.name)
         }
@@ -208,7 +228,7 @@ class JsmContainer implements Container {
      * Clone JIRA home volume
      * Container must be stopped
      * @param newVolumeName must be unique
-     * @param labels, optional labels to add to the new volume
+     * @param labels , optional labels to add to the new volume
      * @return
      */
     Volume cloneJiraHome(String newVolumeName = "", Map<String, Object> labels = null) {
@@ -216,8 +236,8 @@ class JsmContainer implements Container {
         newVolumeName = newVolumeName ?: shortId + "-clone"
 
         labels = labels ?: [
-                srcContainerId : getId(),
-                created : System.currentTimeSeconds()
+                srcContainerId: getId(),
+                created       : System.currentTimeSeconds()
         ] as Map
 
         Volume newVolume = dockerClient.cloneVolume(jiraHomeMountPoint.name, newVolumeName, labels)
