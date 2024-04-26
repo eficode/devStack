@@ -147,8 +147,8 @@ trait Container {
     }
 
     /**
-     * These capabilities will be added to containers that are being created
-     * @param deviceMapping
+     * This capability will be added to containers when they are being created
+     * @param capability, ex: SYS_ADMIN
      */
     void prepareCapability(String capability) {
 
