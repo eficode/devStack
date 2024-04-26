@@ -205,6 +205,47 @@ class ContainerTest extends DevStackSpec {
 
     }
 
+
+    def "Test Adding Capability And Device To Container"() {
+
+        setup: "Creating a Standard Alpine Container"
+        AlpineContainer alpineContainer = new AlpineContainer()
+        alpineContainer.setContainerName("spock-alpine1")
+        alpineContainer.createSleepyContainer()
+        alpineContainer.startContainer()
+
+        ArrayList<String> containerOut = alpineContainer.runBashCommandInContainer("apk update && apk add libcap && echo status: \$?")
+        assert containerOut.toString().contains("status: 0") : "Error installing dependencies in container"
+
+        when: "Checking if the container has capability cap_sys_admin by default "
+        containerOut = alpineContainer.runBashCommandInContainer("capsh --has-p=cap_sys_admin || echo status: \$?")
+
+        then: "Container output confirms it does not have capability by default"
+        assert !containerOut.contains("status: 0 ") : "Error, standard container already has cap_sys_admin"
+        assert containerOut.any {it.contains("not permitted")} : "Error, standard container already has cap_sys_admin"
+
+        when: "Checking if the container has /dev/foobar device by default "
+        containerOut = alpineContainer.runBashCommandInContainer("ls -l /dev/foobar || echo status \$?")
+
+        then: "Container output confirms it does not have device by default"
+        assert !containerOut.contains("status: 0 ") : "Error, standard container already has device"
+        assert containerOut.any {it.containsIgnoreCase("No such file")} : "Error, standard container already has device"
+
+        when: "Adding device and capability to a new container"
+        alpineContainer.stopAndRemoveContainer(1)
+        alpineContainer.prepareCapability("SYS_ADMIN")
+        alpineContainer.prepareDevice("/dev/null", "/dev/foobar")
+        alpineContainer.createSleepyContainer()
+        alpineContainer.startContainer()
+        containerOut = alpineContainer.runBashCommandInContainer("apk update && apk add libcap && echo status: \$?")
+        assert containerOut.toString().contains("status: 0") : "Error installing dependencies in container"
+
+        then:
+        assert alpineContainer.runBashCommandInContainer("capsh --has-p=cap_sys_admin && echo status: \$?").toString().containsIgnoreCase("status: 0") : "Error, cap_sys_admin capability was not added to container"
+        assert alpineContainer.runBashCommandInContainer("ls -l /dev/foobar && echo status: \$?").toString().containsIgnoreCase("status: 0") : "Error, /dev/foobar device was not added to container"
+
+    }
+
     def testCreateTar() {
 
         setup:

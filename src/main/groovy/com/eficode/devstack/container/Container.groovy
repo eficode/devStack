@@ -10,6 +10,7 @@ import de.gesellix.docker.remote.api.ContainerCreateRequest
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.ContainerState
 import de.gesellix.docker.remote.api.ContainerSummary
+import de.gesellix.docker.remote.api.DeviceMapping
 import de.gesellix.docker.remote.api.EndpointSettings
 import de.gesellix.docker.remote.api.ExecConfig
 import de.gesellix.docker.remote.api.HostConfig
@@ -50,9 +51,12 @@ trait Container {
     abstract String containerImageTag
     ArrayList<String> containerDefaultNetworks = ["bridge"]
     ArrayList<String> customEnvVar = []
+
     String defaultShell = "/bin/bash"
     String containerId
     ArrayList<Mount> preparedMounts = [] //Mounts that will be added at creation
+    private ArrayList<DeviceMapping> preparedDevices = []
+    private ArrayList<String> preparedCapabilities = []
 
 
     /**
@@ -96,9 +100,87 @@ trait Container {
     }
 
     /**
-     * Get MountPoints currently attached to container
-     * @return
+     * This device mapping will be added to containers when they are being created
+     * https://docs.docker.com/reference/cli/docker/container/run/#device
+     * @param hostPath source path on host
+     * @param containerPath destination path in container, if null the same path as hostPath will be used
+     * @param permissions CgroupPermissions ex: rwm
      */
+    void prepareDevice(String hostPath, String containerPath = null, String permissions = "rwm") {
+
+        DeviceMapping deviceMapping = new DeviceMapping()
+        deviceMapping.setPathInContainer(containerPath ?: hostPath)
+        deviceMapping.setPathOnHost(hostPath)
+        deviceMapping.setCgroupPermissions(permissions)
+
+        prepareDevice(deviceMapping)
+    }
+    /**
+     * This device mapping will be added to containers when they are being created
+     * https://docs.docker.com/reference/cli/docker/container/run/#device
+     * @param deviceMapping
+     */
+    void prepareDevice(DeviceMapping deviceMapping) {
+
+
+        log.info("Adding device: ${deviceMapping.pathOnHost} to container: ${self.shortId}:" + deviceMapping.pathInContainer)
+        if (!self.created) {
+            preparedDevices.add(deviceMapping)
+            log.debug("\tDevice prepared and will be added when container is created")
+        } else if (hasDevice(deviceMapping)) {
+            log.info("\tContainer already has device")
+        } else {
+            throw new InputMismatchException("Cant add new device to already existing container")
+        }
+
+    }
+    /**
+     * Checks if Container has device
+     * @param device
+     * @return true if found
+     */
+    boolean hasDevice(DeviceMapping deviceMapping) {
+        ArrayList<DeviceMapping> deviceMappings = inspectContainer().hostConfig.devices
+
+        return deviceMappings.any { it == deviceMapping }
+
+    }
+
+    /**
+     * These capabilities will be added to containers that are being created
+     * @param deviceMapping
+     */
+    void prepareCapability(String capability) {
+
+
+        log.info("Adding capability: ${capability} to container: ${self.shortId}")
+        if (!self.created) {
+            preparedCapabilities.add(capability)
+            log.debug("\tCapability prepared and will be added when container is created")
+        } else if (hasCapability(capability)) {
+            log.info("\tContainer already has capability")
+        } else {
+            throw new InputMismatchException("Cant add new capability to already existing container")
+        }
+    }
+
+/**
+ * Checks if Container has capability
+ * @param capability
+ * @return true if found
+ */
+    boolean hasCapability(String capability) {
+        ArrayList<String> capabilities = inspectContainer().hostConfig.getCapAdd()
+
+        return capabilities.any { it == capability }
+
+    }
+
+
+/**
+ * Get MountPoints currently attached to container
+ * @return
+ */
     ArrayList<MountPoint> getMounts() {
 
         ContainerInspectResponse response = inspectContainer()
@@ -121,9 +203,14 @@ trait Container {
                     h.portBindings = [(self.containerMainPort + "/tcp"): [new PortBinding("0.0.0.0", (self.containerMainPort))]]
                 }
                 h.mounts = self.preparedMounts
+
+                h.setDevices(preparedDevices)
+                h.setCapAdd(preparedCapabilities)
+
             }
             c.hostname = self.containerName
             c.env = self.customEnvVar
+
 
         }
 
@@ -131,21 +218,21 @@ trait Container {
 
     }
 
-    /**
-     * Helper method that allows you to easily customize the ContainerCreateRequest by overriding just this method
-     * @param containerCreateRequest
-     * @return
-     */
+/**
+ * Helper method that allows you to easily customize the ContainerCreateRequest by overriding just this method
+ * @param containerCreateRequest
+ * @return
+ */
     ContainerCreateRequest customizeContainerCreateRequest(ContainerCreateRequest containerCreateRequest) {
         return containerCreateRequest
     }
 
-    /**
-     * Create container and override default docker cmd and entrypoint
-     * @param cmd :
-     * @param entrypoint ex: ["tail", "-f", "/dev/null"]
-     * @return container id
-     */
+/**
+ * Create container and override default docker cmd and entrypoint
+ * @param cmd :
+ * @param entrypoint ex: ["tail", "-f", "/dev/null"]
+ * @return container id
+ */
     String createContainer(ArrayList<String> cmd = [], ArrayList<String> entrypoint = []) {
 
         assert ping(): "Error connecting to docker engine"
@@ -171,7 +258,7 @@ trait Container {
         long createTimeoutMs = 10000
         long createWaitStart = System.currentTimeMillis()
 
-        while (!created && (createWaitStart + createTimeoutMs ) > System.currentTimeMillis()) {
+        while (!created && (createWaitStart + createTimeoutMs) > System.currentTimeMillis()) {
             sleep(1000)
         }
         if (!created) {
@@ -183,10 +270,10 @@ trait Container {
     }
 
 
-    /**
-     * Will create a Container that will sleep indefinitely, ie wont shut of once entrypoint has finished executing
-     * @return container id
-     */
+/**
+ * Will create a Container that will sleep indefinitely, ie wont shut of once entrypoint has finished executing
+ * @return container id
+ */
     String createSleepyContainer() {
         return createContainer([], ["tail", "-f", "/dev/null"])
     }
@@ -197,11 +284,11 @@ trait Container {
     }
 
 
-    /**
-     * Replaced the default docker connection (local) with a remote, secure one
-     * @param host ex: "https://docker.domain.se:2376"
-     * @param certPath folder containing ca.pem, cert.pem, key.pem
-     */
+/**
+ * Replaced the default docker connection (local) with a remote, secure one
+ * @param host ex: "https://docker.domain.se:2376"
+ * @param certPath folder containing ca.pem, cert.pem, key.pem
+ */
     boolean setupSecureRemoteConnection(String host, String certPath) {
 
         DockerClientConfig dockerConfig = new DockerClientConfig(host)
@@ -241,12 +328,12 @@ trait Container {
 
     }
 
-    /**
-     * Returnes the common short form of the container ID
-     * @return
-     */
+/**
+ * Returnes the common short form of the container ID
+ * @return
+ */
     String getShortId() {
-        return getContainerId()?.substring(0,12)
+        return getContainerId()?.substring(0, 12)
     }
 
     String getId() {
@@ -310,10 +397,10 @@ trait Container {
     }
 
 
-    /**
-     * Returns true if the container has been created but never started
-     * @return
-     */
+/**
+ * Returns true if the container has been created but never started
+ * @return
+ */
     boolean hasNeverBeenStarted() {
 
         ContainerState.Status status = inspectContainer()?.state?.status
@@ -438,7 +525,7 @@ trait Container {
 
                 if (ignorePaths.any { newEntryFile.absolutePath.matches(it) }) {
                     log.trace("\t" * 5 + "File matches a path that is to be ignored, will not process further")
-                }else {
+                } else {
                     TarArchiveEntry entry = new TarArchiveEntry(newEntryFile, newEntryFile.name)
                     entry.setSize(newEntryFile.size())
                     tarArchive.putArchiveEntry(entry)
@@ -493,20 +580,20 @@ trait Container {
     }
 
 
-    /**
-     * Gets the home path for the containers default user
-     * @return ex: /home/user
-     */
+/**
+ * Gets the home path for the containers default user
+ * @return ex: /home/user
+ */
     String getHomePath() {
-        runBashCommandInContainer("pwd").find {true}
+        runBashCommandInContainer("pwd").find { true }
     }
 
 
-    /**
-     * Creates a network of the type bridge, or returns an existing one if one with the same name exists
-     * @param networkName name of the network
-     * @return the created/existing network
-     */
+/**
+ * Creates a network of the type bridge, or returns an existing one if one with the same name exists
+ * @param networkName name of the network
+ * @return the created/existing network
+ */
     Network createBridgeNetwork(String networkName) {
 
         log.info("Creating network:" + networkName)
@@ -545,11 +632,11 @@ trait Container {
 
     }
 
-    /**
-     * Gets a bridge network based on name or id, note there might be multiple networks with the same name
-     * @param networkNameOrId
-     * @return null or one of the matching networks
-     */
+/**
+ * Gets a bridge network based on name or id, note there might be multiple networks with the same name
+ * @param networkNameOrId
+ * @return null or one of the matching networks
+ */
     Network getBridgeNetwork(String networkNameOrId) {
 
 
@@ -559,11 +646,11 @@ trait Container {
     }
 
 
-    /**
-     * Gets a network based on name or id, note there might be multiple networks with the same name
-     * @param networkNameOrId
-     * @return Network if found, null if not
-     */
+/**
+ * Gets a network based on name or id, note there might be multiple networks with the same name
+ * @param networkNameOrId
+ * @return Network if found, null if not
+ */
     Network getDockerNetwork(String networkNameOrId) {
 
 
@@ -571,11 +658,11 @@ trait Container {
 
         return network
     }
-    /**
-     * Gets  networks based on name or id, note there might be multiple networks with the same name
-     * @param networkNameOrIds
-     * @return Networks if found, null if not
-     */
+/**
+ * Gets  networks based on name or id, note there might be multiple networks with the same name
+ * @param networkNameOrIds
+ * @return Networks if found, null if not
+ */
     ArrayList<Network> getDockerNetworks(ArrayList<String> networkNameOrIds) {
 
         ArrayList<Network> networks = networkClient.networks().content.findAll { it.name in networkNameOrIds || it.id in networkNameOrIds }
@@ -587,10 +674,10 @@ trait Container {
         return getDockerNetwork(network.id) != null
     }
 
-    /**
-     * Get the networks that this container is connected too
-     * @return
-     */
+/**
+ * Get the networks that this container is connected too
+ * @return
+ */
     ArrayList<Network> getConnectedContainerNetworks() {
         Map<String, EndpointSettings> rawResponse = inspectContainer().networkSettings.networks
 
@@ -619,13 +706,13 @@ trait Container {
 
     }
 
-    /**
-     * Connect container to an existing network.
-     * Note:
-     *  A container will by default already belong to a network, so this method might connect the container to a second.
-     * @param network
-     * @return true on success
-     */
+/**
+ * Connect container to an existing network.
+ * Note:
+ *  A container will by default already belong to a network, so this method might connect the container to a second.
+ * @param network
+ * @return true on success
+ */
     boolean connectContainerToNetwork(Network network) throws InputMismatchException {
 
 
@@ -666,11 +753,11 @@ trait Container {
 
     }
 
-    /**
-     * Sets networks for the container, disconnecting the container from any networks not in the list
-     * @param newNetworks A list of the networks that the container should be connected to
-     * @return true on success
-     */
+/**
+ * Sets networks for the container, disconnecting the container from any networks not in the list
+ * @param newNetworks A list of the networks that the container should be connected to
+ * @return true on success
+ */
     boolean setContainerNetworks(ArrayList<Network> newNetworks) throws InputMismatchException, AssertionError {
 
         log.info("Setting container networks")
@@ -700,13 +787,13 @@ trait Container {
     }
 
 
-    /**
-     * Replaces text content of a file in the container
-     * @param content The new content that should be in the file
-     * @param filePath Path to the file in the container
-     * @param verify If true will read back content of file and verify, might five false negatives in case of special chars
-     * @return
-     */
+/**
+ * Replaces text content of a file in the container
+ * @param content The new content that should be in the file
+ * @param filePath Path to the file in the container
+ * @param verify If true will read back content of file and verify, might five false negatives in case of special chars
+ * @return
+ */
     boolean replaceFileInContainer(String content, String filePath, boolean verify = false) {
         ArrayList<String> out = runBashCommandInContainer("cat > $filePath <<- 'EOF'\n" + content + "\nEOF")
 
@@ -722,12 +809,12 @@ trait Container {
         return true
     }
 
-    /**
-     * Copy files from a container to local machine
-     * @param containerPath can be a file or a path (ending in /)
-     * @param destinationPath
-     * @return
-     */
+/**
+ * Copy files from a container to local machine
+ * @param containerPath can be a file or a path (ending in /)
+ * @param destinationPath
+ * @return
+ */
     ArrayList<File> copyFilesFromContainer(String containerPath, String destinationPath) {
 
         //containerPath can be both a directory or a file
@@ -745,14 +832,14 @@ trait Container {
 
     }
 
-    /**
-     * Creates a temporary tar, copies it to the container and extracts it there
-     * @param srcFilePath Local path to copy, will find directories/files recursively
-     * @param destinationDirectory The destination path in the container, must already exist and be absolut
-     * @param ignorePaths If these regex patterns matches the path/name of a file it wont be copied over.
-     *          ex: [".*\\.git.*"]
-     * @return true on success
-     */
+/**
+ * Creates a temporary tar, copies it to the container and extracts it there
+ * @param srcFilePath Local path to copy, will find directories/files recursively
+ * @param destinationDirectory The destination path in the container, must already exist and be absolut
+ * @param ignorePaths If these regex patterns matches the path/name of a file it wont be copied over.
+ *          ex: [".*\\.git.*"]
+ * @return true on success
+ */
     boolean copyFileToContainer(String srcFilePath, String destinationDirectory, ArrayList<String> ignorePaths = []) {
 
 
@@ -782,7 +869,7 @@ trait Container {
     }
 
 
-    //Format is one of: `user`, `user:group`, `uid`, or `uid:gid`
+//Format is one of: `user`, `user:group`, `uid`, or `uid:gid`
     ArrayList<String> runCommandInContainer(String containerId, ArrayList<String> commands, long timeoutS = 10, String userGroup = null, String workingDir = null) {
 
         log.info("Executing bash command in container:")
@@ -823,39 +910,39 @@ trait Container {
 
     }
 
-    /**
-     * Creates an temporary container, runs a command, exits and removes container
-     * @param cmd A string that will be passed as a command to /bin/sh -c, ex: echo start;sleep 5
-     * @param timeoutMs
-     *      0 don't wait, return an array with the container ID immediately,
-     *      timeoutMs > 0 Wait for container to stop, if it takes longer than timeoutMs an exception will be thrown
-     * @param mounts bind mounts that the container should have:
-     *      readOnly is optional and defaults to true
-     *      ex:[[src: "/tmp/engine/test", target: "/tmp/container/test", readOnly :true]
-     * @param dockerHost
-     * @param dockerCertPath
-     * @return An array of the container logs, or just an array containing container id if timeoutMs == 0
-     */
+/**
+ * Creates an temporary container, runs a command, exits and removes container
+ * @param cmd A string that will be passed as a command to /bin/sh -c, ex: echo start;sleep 5
+ * @param timeoutMs
+ *      0 don't wait, return an array with the container ID immediately,
+ *      timeoutMs > 0 Wait for container to stop, if it takes longer than timeoutMs an exception will be thrown
+ * @param mounts bind mounts that the container should have:
+ *      readOnly is optional and defaults to true
+ *      ex:[[src: "/tmp/engine/test", target: "/tmp/container/test", readOnly :true]
+ * @param dockerHost
+ * @param dockerCertPath
+ * @return An array of the container logs, or just an array containing container id if timeoutMs == 0
+ */
     static ArrayList<String> runCmdAndRm(String cmd, long timeoutMs, ArrayList<Map> mounts = [], String dockerHost = "", String dockerCertPath = "") {
 
         return this.runCmdAndRm(["/bin/sh", "-c", cmd], timeoutMs, mounts, dockerHost, dockerCertPath)
     }
 
 
-    /**
-     * Creates a temporary container, runs a command, exits and removes container
-     * @param container a container object that hasnt yet been created
-     * @param cmd An array of commands to run, ex: [ "/bin/sh", "-c", "echo start;sleep 5"]
-     * @param timeoutMs
-     *      0 don't wait, return an array with the container ID immediately,
-     *      timeoutMs > 0 Wait for container to stop, if it takes longer than timeoutMs an exception will be thrown
-     * @param mounts bind mounts that the container should have:
-     *      readOnly is optional and defaults to true
-     *      ex:[[src: "/tmp/engine/test", target: "/tmp/container/test", readOnly :true]
-     * @param dockerHost
-     * @param dockerCertPath
-     * @return An array of the container logs, or just an array containing container id if timeoutMs == 0
-     */
+/**
+ * Creates a temporary container, runs a command, exits and removes container
+ * @param container a container object that hasnt yet been created
+ * @param cmd An array of commands to run, ex: [ "/bin/sh", "-c", "echo start;sleep 5"]
+ * @param timeoutMs
+ *      0 don't wait, return an array with the container ID immediately,
+ *      timeoutMs > 0 Wait for container to stop, if it takes longer than timeoutMs an exception will be thrown
+ * @param mounts bind mounts that the container should have:
+ *      readOnly is optional and defaults to true
+ *      ex:[[src: "/tmp/engine/test", target: "/tmp/container/test", readOnly :true]
+ * @param dockerHost
+ * @param dockerCertPath
+ * @return An array of the container logs, or just an array containing container id if timeoutMs == 0
+ */
     static ArrayList<String> runCmdAndRm(ArrayList<String> cmd, long timeoutMs, ArrayList<Map> mounts = [], String dockerHost = "", String dockerCertPath = "") {
 
 
@@ -934,11 +1021,11 @@ trait Container {
     }
 
 
-    /**
-     * Gets the port from a URL
-     * @param url
-     * @return
-     */
+/**
+ * Gets the port from a URL
+ * @param url
+ * @return
+ */
     static String extractPortFromUrl(String url) {
         Pattern pattern = Pattern.compile(".*?:(\\d+)")
 
@@ -960,10 +1047,10 @@ trait Container {
         return out
     }
 
-    /**
-     * Prepare custom environmental variables. Must be set before creating container
-     * @param keyVar Ex: ["key=value", "PATH=/user/local/sbin"]
-     */
+/**
+ * Prepare custom environmental variables. Must be set before creating container
+ * @param keyVar Ex: ["key=value", "PATH=/user/local/sbin"]
+ */
     void prepareCustomEnvVar(ArrayList<String> keyVar) {
 
         assert hasNeverBeenStarted(): "Error, cant set custom environment variables after creating container"
