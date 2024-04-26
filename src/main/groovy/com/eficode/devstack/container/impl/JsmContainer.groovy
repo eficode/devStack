@@ -51,7 +51,7 @@ class JsmContainer implements Container {
     void enableAppUpload() {
 
         log.info("Enabling upload of Custom JIRA Apps")
-        if (appAppUploadEnabled){
+        if (appAppUploadEnabled) {
             log.debug("\tApp upload is already enabled")
         }
         assert !created: "Error, cant enable App Upload for a container that has already been created"
@@ -138,6 +138,8 @@ class JsmContainer implements Container {
         if (jvmSupportRecommendedArgs) {
             containerCreateRequest.env.add("JVM_SUPPORT_RECOMMENDED_ARGS=" + jvmSupportRecommendedArgs.join(" "))
         }
+
+
 
         return containerCreateRequest
 
