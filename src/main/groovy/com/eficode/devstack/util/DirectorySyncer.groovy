@@ -17,31 +17,13 @@ class DirectorySyncer implements Container {
     String containerImageTag = "latest"
     String defaultShell = "/bin/sh"
 
-    ArrayList<String> srcPaths = []
-    String destPath
-
-
-    final String setupCommands = """
-    apk update
-    apk add inotify-tools rsync tini
-    """.stripIndent()
-
-    /*
-    @Override
-    boolean runOnFirstStartup() {
-        log.info("Installing sync dependencies")
-        runBashCommandInContainer(setupCommands, 60, "root")
-    }
-
-     */
-
     DirectorySyncer(String dockerHost = "", String dockerCertPath = "") {
         if (dockerHost && dockerCertPath) {
             assert setupSecureRemoteConnection(dockerHost, dockerCertPath): "Error setting up secure remote docker connection"
         }
     }
 
-    static String getSyncScript() {
+    static String getSyncScript(String rsyncOptions = "-avh") {
 
         return """
         
@@ -59,7 +41,7 @@ class DirectorySyncer implements Container {
         
         function execute() {
             eval "\$@"
-                rsync -avh --delete /mnt/src/*/ /mnt/dest/ 
+                rsync $rsyncOptions /mnt/src/*/ /mnt/dest/ 
         }
         
         execute""
@@ -98,13 +80,45 @@ class DirectorySyncer implements Container {
 
     }
 
-    static DirectorySyncer createSyncToVolume(ArrayList<String> hostAbsSourcePaths, String destVolumeName, String dockerHost = "", String dockerCertPath = "") {
+    /**
+     * <pre>
+     * Creates a Util container:
+     *  1. Listens for file changes in one or more docker engine src paths (hostAbsSourcePaths)
+     *  2. If changes are detected rsync is triggered
+     *  3. Rsync detects changes and sync them to destVolumeName
+     *
+     *  The root of all the srcPaths will be combined and synced to destVolume,
+     *  ex:
+     *      ../srcPath1/file1.txt
+     *      ../srcPath2/file2.txt
+     *      ../srcPath2/subdir/file3.txt
+     *      Will give:
+     *      destVolume/file1.txt
+     *      destVolume/file2.txt
+     *      destVolume/subdir/file3.txt
+     *  </pre>
+     *
+     *  <b>Known Issues</b>
+     *  <pre>
+     *  Delete events are not properly detected and triggered on,
+     *  thus any such actions will only be reflected after
+     *  subsequent create/update events.
+     *  </pre>
+     * @param hostAbsSourcePaths A list of one or more src dirs to sync from
+     * @param destVolumeName A docker volume to sync to, if it does not exist it will be created
+     * @param rsyncOptions Options to use when running rsync, ie: rsync $rsyncOptions /mnt/src/*\/ /mnt/dest/<p>
+     *      example: -avh --delete
+     * @param dockerHost Docker host to run on
+     * @param dockerCertPath Docker certs to use
+     * @return
+     */
+    static DirectorySyncer createSyncToVolume(ArrayList<String> hostAbsSourcePaths, String destVolumeName, String rsyncOptions = "-avh", String dockerHost = "", String dockerCertPath = "") {
 
         DirectorySyncer container = new DirectorySyncer(dockerHost, dockerCertPath)
         Logger log = container.log
 
         container.containerName = container.getAvailableContainerName()
-        container.prepareCustomEnvVar(["syncScript=${syncScript}"])
+        container.prepareCustomEnvVar(["syncScript=${getSyncScript(rsyncOptions)}"])
 
         Volume volume = container.dockerClient.getVolumesWithName(destVolumeName).find { true }
 
@@ -125,13 +139,7 @@ class DirectorySyncer implements Container {
             container.prepareBindMount(srcPath, "/mnt/src/$srcDirName", true)
         }
 
-
-        //container.createSleepyContainer()
-        //container.createContainer(["echo \"$syncScript\" > /syncScript.sh", "sleep 10"], ["/sbin/tini", "--"])
         container.createContainer(["/bin/sh", "-c", "echo \"\$syncScript\" > /syncScript.sh && /bin/sh syncScript.sh"], [])
-        //container.createContainer(["whoami"], [])
-        //container.createContainer(["/bin/sh", "-c", "echo \"$syncScript\" > /syncScript.sh && /bin/sh syncScript.sh"], [])
-        //container.createContainer(["echo", "hej"], ["/sbin/tini", "--"])
         container.startContainer()
 
         return container

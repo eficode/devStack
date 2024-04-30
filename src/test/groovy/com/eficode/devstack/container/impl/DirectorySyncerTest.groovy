@@ -14,7 +14,7 @@ class DirectorySyncerTest extends DevStackSpec {
 
         DevStackSpec.log = LoggerFactory.getLogger(this.class)
 
-        cleanupContainerNames = []
+        cleanupContainerNames = ["DirectorySyncer", "DirectorySyncer1", "DirectorySyncer2", "DirectorySyncer-companion", "DirectorySyncer1-companion"]
         cleanupContainerPorts = []
 
         disableCleanup = false
