@@ -184,7 +184,7 @@ trait Container {
     ArrayList<MountPoint> getMounts() {
 
         ContainerInspectResponse response = inspectContainer()
-        return response.mounts
+        return response?.mounts
     }
 
     ContainerCreateRequest setupContainerCreateRequest() {
