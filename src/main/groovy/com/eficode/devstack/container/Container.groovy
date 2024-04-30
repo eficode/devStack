@@ -437,10 +437,14 @@ trait Container {
 
         if (self.containerId) {
 
-            dockerClient.stop(self.containerId, timeoutS)
-            if (self.status() == ContainerState.Status.Running) {
-                dockerClient.kill(self.containerId)
+
+            if (self.isRunning()) {
+                dockerClient.stop(self.containerId, timeoutS)
+                if (self.isRunning()) {
+                    dockerClient.kill(self.containerId)
+                }
             }
+
             dockerClient.rm(self.containerId)
 
 
@@ -1055,7 +1059,7 @@ trait Container {
 
         assert hasNeverBeenStarted(): "Error, cant set custom environment variables after creating container"
 
-        self.customEnvVar = keyVar
+        self.customEnvVar.addAll(keyVar.collect {it.toString()})
     }
 
 
