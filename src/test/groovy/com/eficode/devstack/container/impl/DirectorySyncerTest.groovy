@@ -30,6 +30,52 @@ class DirectorySyncerTest extends DevStackSpec {
 
     }
 
+    def "Test create duplicate Syncer"() {
+
+        log.info("Testing that createSyncToVolume detects a duplicate container and returns it in stead of creating a new one")
+        File srcDir1 = File.createTempDir("srcDir1")
+        log.debug("\tCreated Engine local temp dir:" + srcDir1.canonicalPath)
+        File srcDir2 = File.createTempDir("srcDir2")
+        log.debug("\tCreated Engine local temp dir:" + srcDir2.canonicalPath)
+
+        String uniqueVolumeName = "syncVolume" + System.currentTimeMillis().toString().takeRight(3)
+        !volumeExists(uniqueVolumeName) ?: dockerClient.rmVolume(uniqueVolumeName)
+        log.debug("\tWill use sync to Docker volume:" + uniqueVolumeName)
+
+        DirectorySyncer firstSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        log.info("\tCreated first sync container: ${firstSyncer.containerName} (${firstSyncer.shortId})")
+        Integer containersAfterFirst = firstSyncer.dockerClient.ps(true).content.size()
+        log.info("\t\tDocker engine now has a total of ${containersAfterFirst} contianers")
+
+        when: "Creating second sync container"
+        DirectorySyncer secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        log.info("\tCreated second sync container: ${secondSyncer.containerName} (${secondSyncer.shortId})")
+
+        then: "They should have the same ID"
+        assert firstSyncer.id == secondSyncer.id : "The second container doesnt have the same id"
+        assert containersAfterFirst == secondSyncer.dockerClient.ps(true).content.size() : "The number of containers changed after creating the second one"
+        assert secondSyncer.running
+        log.info("\tA duplicate container was not created, instead the first one was returned")
+
+        when: "Stopping the sync container, and creating another duplicate"
+        firstSyncer.stopContainer()
+        assert !firstSyncer.running
+        secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+
+        then:"The duplicate should have been automatically started"
+        secondSyncer.running
+
+
+        cleanup:
+        assert srcDir1.deleteDir()
+        assert srcDir2.deleteDir()
+        assert firstSyncer.stopAndRemoveContainer()
+        dockerClient.rmVolume(uniqueVolumeName)
+
+
+
+    }
+
     def "Test createSyncToVolume"() {
 
         setup:
