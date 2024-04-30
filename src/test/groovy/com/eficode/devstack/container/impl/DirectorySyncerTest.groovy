@@ -47,7 +47,7 @@ class DirectorySyncerTest extends DevStackSpec {
         when: "When creating syncer"
 
         assert !volumeExists(uniqueVolumeName): "Destination volume already exists"
-        DirectorySyncer syncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, dockerRemoteHost, dockerCertPath )
+        DirectorySyncer syncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
         log.info("\tCreated sync container: ${syncer.containerName} (${syncer.shortId})")
         ContainerInspectResponse containerInspect = syncer.inspectContainer()
 
