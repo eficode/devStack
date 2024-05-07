@@ -27,7 +27,7 @@ import org.apache.commons.compress.archivers.ArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
-import org.apache.commons.compress.utils.IOUtils
+import org.apache.commons.io.IOUtils
 import org.apache.commons.io.FileUtils
 import org.codehaus.groovy.runtime.ResourceGroovyMethods
 import org.slf4j.Logger
@@ -148,7 +148,7 @@ trait Container {
 
     /**
      * This capability will be added to containers when they are being created
-     * @param capability, ex: SYS_ADMIN
+     * @param capability , ex: SYS_ADMIN
      */
     void prepareCapability(String capability) {
 
