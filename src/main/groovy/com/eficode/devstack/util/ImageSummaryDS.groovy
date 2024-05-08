@@ -72,7 +72,7 @@ class ImageSummaryDS {
      * @param timeoutS
      * @return
      */
-    ArrayList<String> runAndExit(ArrayList<String> entrypoint, ArrayList<String> cmd, Integer timeoutS = 1*60000) {
+    ArrayList<String> runAndExit(ArrayList<String> entrypoint, ArrayList<String> cmd, Integer timeoutS = 1 * 60000) {
 
         AbstractContainer container = new AbstractContainer(System.nanoTime().toString().takeRight(5), "", name, tag, "/bin/sh")
         container.createContainer(cmd, entrypoint)
@@ -118,7 +118,6 @@ class ImageSummaryDS {
     String getDefaultUserId() {
 
 
-
         ArrayList<String> out = runAndExit(["/bin/sh", "-c"], ["id -u"], 10000)
 
         if (out.toString().contains("cannot find name for user") || out.size() != 1) {
@@ -142,24 +141,21 @@ class ImageSummaryDS {
         log.info("Prepending startup script of $this")
         ImageInspect srcInspect = inspect()
 
-        String newTag = (tag == "" ? this.repoTags.first() + "-prepend"  : tag)
+        String newTag = (tag == "" ? this.repoTags.first() + "-prepend" : tag)
 
 
         String imageUserId = getDefaultUserId()
 
-        String oldEntrypoint = srcInspect.config.entrypoint?.join(" ") ?: "/bin/sh -c"
+        String oldEntrypoint = srcInspect.config.entrypoint?.join(" ") ?: "" // ?: "/bin/sh -c"
         log.debug("\tThe old entrypoint is: " + oldEntrypoint)
 
-        String oldCmd = srcInspect.config.cmd?.collect {"\"$it\""}?.join(" ")
+        String oldCmd = srcInspect.config.cmd?.collect { "\"$it\"" }?.join(" ")
         log.debug("\tThe old cmd is: " + oldCmd)
 
         String newScriptBody = shellScriptBody
         newScriptBody += """
-        eval '${oldEntrypoint}${oldCmd ? " $oldCmd" : ""}'
+        eval '${oldEntrypoint ? "$oldEntrypoint " : "" }${oldCmd ? "$oldCmd" : ""}'
         """.stripIndent()
-
-
-
 
 
         File tempDir = File.createTempDir("prependStartup")
@@ -237,22 +233,29 @@ class ImageSummaryDS {
          */
 
         return """
-        eval NEW_HOME=~$fromUserName
-        NEW_HOME=\${NEW_HOME%/*}/$toUserName
-
-        echo Updating group $fromGroupName to $toGroupName $toGid
-        groupmod -g $toGid -n $toGroupName $fromGroupName
-        echo Updating user $fromUserName to $toUserName $toUid
-        usermod -u $toUid -l $toUserName -g $toGid $fromUserName 
-        echo Moving user home to \$NEW_HOME
-        usermod --home \$NEW_HOME --move-home $toUserName
-        #Ignoring return code from chown, as it will be != 0 because some files where skipped
-        echo Changing file permissions from $fromUid:$fromGid to $toUserName:$toGroupName
+        if [ -f ".userReplaced" ]; then
+            echo User has already been replaced
+        else
+            touch .userReplaced
+            eval NEW_HOME=~$fromUserName
+            NEW_HOME=\${NEW_HOME%/*}/$toUserName
+    
+            echo Updating group $fromGroupName to $toGroupName $toGid
+            groupmod -g $toGid -n $toGroupName $fromGroupName
+            echo Updating user $fromUserName to $toUserName $toUid
+            usermod -u $toUid -l $toUserName -g $toGid $fromUserName 
+            echo Moving user home to \$NEW_HOME
+            usermod --home \$NEW_HOME --move-home $toUserName
+            #Ignoring return code from chown, as it will be != 0 because some files where skipped
+            echo Changing file permissions from $fromUid:$fromGid to $toUserName:$toGroupName
+            
+            chown -R --from=$fromUid $toUserName /  || true
+            chown -R --from=:$fromGid :$toGid /  || true
+    
+            echo Finished replacing user
+        fi
         
-        chown -R --from=$fromUid $toUserName /  || true
-        chown -R --from=:$fromGid :$toGid /  || true
-
-        echo Finished replacing user
+        su $toUserName
         """.stripIndent()
 
 
@@ -289,33 +292,23 @@ class ImageSummaryDS {
     ImageSummaryDS replaceDockerUser(String fromUserName, String fromUid, String fromGroupName, String fromGid, String toUserName, String toUid, String toGroupName, String toGid, String tag = "") {
 
         String newTag = (tag == "" ? this.repoTags.first() + "-" + toUserName : tag)
+        String scriptBody = getReplaceUserScriptBody(fromUserName, fromUid, fromGroupName, fromGid, toUserName, toUid, toGroupName, toGid)
 
-        File tempDir = File.createTempDir("dockerBuild")
-        tempDir.deleteOnExit()
 
-        File scriptFile = new File(tempDir, "replaceUser.sh")
-        scriptFile.text = getReplaceUserScriptBody(fromUserName, fromUid, fromGroupName, fromGid, toUserName, toUid, toGroupName, toGid)
+        ImageSummaryDS newImage = prependStartupScript(scriptBody, newTag)
 
-        String dockerFileUser = inspect().config.user ?: "root"
-
-        if (dockerFileUser == fromUserName) {
-            dockerFileUser = toUserName
-        }
-
-        String dockerFileBody = """FROM ${this.repoTags.first()}
+        String dockerFileBody = """
+        FROM ${newImage.repoTags.first()}
         USER root
-        ADD replaceUser.sh /replaceUser.sh
-        RUN chmod +x /replaceUser.sh
-        RUN /replaceUser.sh
-        RUN rm /replaceUser.sh
-        USER $dockerFileUser
-        """.stripIndent()
+        """
+        File tempDir = File.createTempDir()
+        tempDir.deleteOnExit()
 
         File dockerFile = new File(tempDir, "Dockerfile")
         dockerFile.text = dockerFileBody
 
-
-        ImageSummaryDS newImage = dockerClient.build(tempDir, newTag)
+        //Rebuilding image so that default user is root, so that file permissions can be changed on startup
+        newImage = dockerClient.build(tempDir, newTag, 2)
 
         return newImage
 
