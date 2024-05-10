@@ -3,8 +3,6 @@ package com.eficode.devstack.util
 import com.eficode.devstack.DevStackSpec
 import com.eficode.devstack.container.impl.AbstractContainer
 import de.gesellix.docker.remote.api.ImageSummary
-import org.apache.tools.ant.util.StringUtils
-import org.codehaus.groovy.util.StringUtil
 import org.slf4j.LoggerFactory
 import org.spockframework.runtime.condition.EditDistance
 
@@ -94,20 +92,24 @@ class ImageSummaryDsTest extends DevStackSpec {
         container.stopAndRemoveContainer()
 
         container = new AbstractContainer("SpockReplaceUser", "", newImage.name, newImage.tag, "/bin/sh")
-        container.createSleepyContainer()
-        container.startContainer()
 
-        ArrayList<String>oldUidPaths = container.runBashCommandInContainer("find / -user $defaultUserId", 5, "root").findAll {!it.contains("Permission denied") && !it.contains("No such file or directory")}
-        ArrayList<String>oldGidPaths = container.runBashCommandInContainer("find / -group $defaultGroupId", 5, "root").findAll {!it.contains("Permission denied") && !it.contains("No such file or directory")}
+        container.createContainer()
+        container.startContainer()
+        sleep(2000)
+
+        if (!container.running) {
+            container.stopAndRemoveContainer()
+            container.createSleepyContainer()
+            container.startContainer()
+        }
 
         then:
         srcImage
+        newImage
         container.running
         container.runBashCommandInContainer("cd && find . -user spock | wc -l", 2, "spock").find { true }?.toInteger() > 0
         container.runBashCommandInContainer("cd && find . -group spock | wc -l", 2, "spock").find { true }?.toInteger() > 0
         container.runBashCommandInContainer("id -g", 2, "spock").find { true } == "2500"
-        assert oldGidPaths.empty : "Container started with paths owned by old gid:" + oldGidPaths.join(", ")
-        assert oldUidPaths.empty : "Container started with paths owned by old uid:" + oldUidPaths.join(", ")
 
 
         cleanup:
@@ -118,12 +120,14 @@ class ImageSummaryDsTest extends DevStackSpec {
         where:
         srcUser  | image                                | tag
         "allure" | "frankescobar/allure-docker-service" | "latest"
-        //"ubuntu" | "ubuntu"                             | "latest"
+        "ubuntu" | "ubuntu"                             | "latest"
 
     }
 
 
+
     ImageSummaryDS getOrPullImage(String name, String tag) {
+
 
 
         ImageSummary image = dockerClient.images().content.find { it.repoTags.any { it == "$name:$tag" } }

@@ -65,6 +65,7 @@ class ImageSummaryDS {
         return "$name:$tag"
     }
 
+
     /**
      * Creates a container with this image with entrypoint and cmd, returns container console output on exit
      * @param entrypoint eg ["/bin/sh", "-c"]
@@ -233,10 +234,6 @@ class ImageSummaryDS {
          */
 
         return """
-        if [ -f ".userReplaced" ]; then
-            echo User has already been replaced
-        else
-            touch .userReplaced
             eval NEW_HOME=~$fromUserName
             NEW_HOME=\${NEW_HOME%/*}/$toUserName
     
@@ -253,9 +250,6 @@ class ImageSummaryDS {
             chown -R --from=:$fromGid :$toGid /  || true
     
             echo Finished replacing user
-        fi
-        
-        su $toUserName
         """.stripIndent()
 
 
@@ -292,23 +286,33 @@ class ImageSummaryDS {
     ImageSummaryDS replaceDockerUser(String fromUserName, String fromUid, String fromGroupName, String fromGid, String toUserName, String toUid, String toGroupName, String toGid, String tag = "") {
 
         String newTag = (tag == "" ? this.repoTags.first() + "-" + toUserName : tag)
-        String scriptBody = getReplaceUserScriptBody(fromUserName, fromUid, fromGroupName, fromGid, toUserName, toUid, toGroupName, toGid)
 
-
-        ImageSummaryDS newImage = prependStartupScript(scriptBody, newTag)
-
-        String dockerFileBody = """
-        FROM ${newImage.repoTags.first()}
-        USER root
-        """
-        File tempDir = File.createTempDir()
+        File tempDir = File.createTempDir("dockerBuild")
         tempDir.deleteOnExit()
+
+        File scriptFile = new File(tempDir, "replaceUser.sh")
+        scriptFile.text = getReplaceUserScriptBody(fromUserName, fromUid, fromGroupName, fromGid, toUserName, toUid, toGroupName, toGid)
+
+        String dockerFileUser = inspect().config.user ?: "root"
+
+        if (dockerFileUser == fromUserName) {
+            dockerFileUser = toUserName
+        }
+
+        String dockerFileBody = """FROM ${this.repoTags.first()}
+        USER root
+        ADD replaceUser.sh /replaceUser.sh
+        RUN chmod +x /replaceUser.sh
+        RUN /replaceUser.sh
+        RUN rm /replaceUser.sh
+        USER $dockerFileUser
+        """.stripIndent()
 
         File dockerFile = new File(tempDir, "Dockerfile")
         dockerFile.text = dockerFileBody
 
-        //Rebuilding image so that default user is root, so that file permissions can be changed on startup
-        newImage = dockerClient.build(tempDir, newTag, 2)
+
+        ImageSummaryDS newImage = dockerClient.build(tempDir, newTag)
 
         return newImage
 

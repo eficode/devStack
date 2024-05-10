@@ -1,6 +1,7 @@
 package com.eficode.devstack.util
 
 import com.eficode.devstack.container.impl.UbuntuContainer
+import de.gesellix.docker.builder.BuildContextBuilder
 import de.gesellix.docker.client.DockerClientImpl
 import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.engine.DockerClientConfig
@@ -21,6 +22,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.time.Duration
+import java.time.temporal.ChronoUnit
 
 import static java.net.Proxy.NO_PROXY
 
@@ -262,6 +264,35 @@ class DockerClientDS extends DockerClientImpl {
         }
 
         return null
+
+    }
+
+    /* --- --- IMAGE --- --- */
+
+    /**
+     * Build a new image
+     * @param contextDir should contain Dockerfile and any files it depends on
+     * @param tag of new image
+     * @param timeoutM defaults to 5m
+     * @return the new ImageSummaryDS
+     */
+    ImageSummaryDS build(File contextDir, String tag, Integer timeoutM = 5) {
+
+
+        File buildContext = File.createTempFile("buildContext", ".tar")
+        buildContext.deleteOnExit()
+        BuildContextBuilder.archiveTarFilesRecursively(contextDir, buildContext)
+
+        this.build(
+                {
+                    log.info(it.stream)
+                },
+                Duration.of(timeoutM, ChronoUnit.MINUTES),
+                tag,
+               new FileInputStream(buildContext)
+        )
+
+        return new ImageSummaryDS(this, this.images().content.find { it.repoTags.any { it == tag } })
 
     }
 

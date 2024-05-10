@@ -51,6 +51,7 @@ trait Container {
     abstract String containerImageTag
     ArrayList<String> containerDefaultNetworks = ["bridge"]
     ArrayList<String> customEnvVar = []
+    String user = null //The user name (or UID) and optionally the user group (or GID) to use as the default user
 
     String defaultShell = "/bin/bash"
     String containerId
@@ -177,6 +178,39 @@ trait Container {
     }
 
 
+    /**
+     * Prepare custom environmental variables. Must be set before creating container
+     * @param keyVar Ex: ["key=value", "PATH=/user/local/sbin"]
+     */
+    void prepareCustomEnvVar(ArrayList<String> keyVar) {
+
+        if (!created) {
+            self.customEnvVar.addAll(keyVar.collect { it.toString() })
+        } else if (!keyVar.every { hasEnv(it) }) {
+            throw new InputMismatchException("Error, cant set new custom environment variables after creating container")
+        }
+
+    }
+
+    /**
+     * Checks if container has been created, and has an environmental var applied
+     * @param envKeyValue , ex  "PATH=/user/local/sbin"
+     * @return true if present
+     */
+    boolean hasEnv(String envKeyValue) {
+
+        if (!created) {
+            return false
+        }
+
+        List<String> envs = inspectContainer()?.getConfig()?.env
+        Boolean present = envs?.toString()?.contains(envKeyValue) ?: false
+        return present
+
+
+    }
+
+
 /**
  * Get MountPoints currently attached to container
  * @return
@@ -197,6 +231,9 @@ trait Container {
                 c.exposedPorts = [(self.containerMainPort + "/tcp"): [:]]
             }
 
+            if (self.user) {
+                c.user = self.user
+            }
 
             c.hostConfig = new HostConfig().tap { h ->
                 if (self.containerMainPort) {
@@ -872,8 +909,6 @@ trait Container {
         }
     }
 
-
-//Format is one of: `user`, `user:group`, `uid`, or `uid:gid`
     ArrayList<String> runCommandInContainer(String containerId, ArrayList<String> commands, long timeoutS = 10, String userGroup = null, String workingDir = null) {
 
         log.info("Executing bash command in container:")
@@ -1049,17 +1084,6 @@ trait Container {
         out = out.replaceFirst(/:\d+\\/?.*/, "") //Remove Port and anything after
         out = out.replaceFirst(/\/.*/, "") //Remove subdomain
         return out
-    }
-
-/**
- * Prepare custom environmental variables. Must be set before creating container
- * @param keyVar Ex: ["key=value", "PATH=/user/local/sbin"]
- */
-    void prepareCustomEnvVar(ArrayList<String> keyVar) {
-
-        assert hasNeverBeenStarted(): "Error, cant set custom environment variables after creating container"
-
-        self.customEnvVar.addAll(keyVar.collect {it.toString()})
     }
 
 
