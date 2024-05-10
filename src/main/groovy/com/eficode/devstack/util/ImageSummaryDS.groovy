@@ -1,21 +1,11 @@
 package com.eficode.devstack.util
 
 import com.eficode.devstack.container.impl.AbstractContainer
-import de.gesellix.docker.builder.BuildContextBuilder
 import de.gesellix.docker.remote.api.ImageInspect
 import de.gesellix.docker.remote.api.ImageSummary
-import groovy.io.FileType
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry
-import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
-import org.codehaus.groovy.runtime.ResourceGroovyMethods
-import org.jetbrains.annotations.NotNull
-import org.jetbrains.annotations.Nullable
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import java.nio.file.Files
-import java.time.Duration
-import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeoutException
 
 class ImageSummaryDS {
