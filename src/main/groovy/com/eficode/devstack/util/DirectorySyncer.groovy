@@ -170,11 +170,12 @@ class DirectorySyncer implements Container {
      * @param destVolumeName A docker volume to sync to, if it does not exist it will be created
      * @param rsyncOptions Options to use when running rsync, ie: rsync $rsyncOptions /mnt/src/*\/ /mnt/dest/<p>
      *      example: -avh --delete
+     * @param containerName Optional, if not given, one will be made up.
      * @param dockerHost Docker host to run on
      * @param dockerCertPath Docker certs to use
      * @return
      */
-    static DirectorySyncer createSyncToVolume(ArrayList<String> hostAbsSourcePaths, String destVolumeName, String rsyncOptions = "-avh", String dockerHost = "", String dockerCertPath = "") {
+    static DirectorySyncer createSyncToVolume(ArrayList<String> hostAbsSourcePaths, String destVolumeName, String rsyncOptions = "-avh",  String containerName = "",String dockerHost = "", String dockerCertPath = "") {
 
         DirectorySyncer container = new DirectorySyncer(dockerHost, dockerCertPath)
         Logger log = container.log

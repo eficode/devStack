@@ -13,6 +13,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 
+//TODO override stop and remove
+//TODO override stop and remove
 class JsmDevDeployment implements Deployment {
 
     Logger log = LoggerFactory.getLogger(this.class)

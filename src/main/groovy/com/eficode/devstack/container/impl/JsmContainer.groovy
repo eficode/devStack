@@ -32,16 +32,30 @@ class JsmContainer implements Container {
         }
     }
 
+
     /**
      * Enables JVM debug of JIRA for port portNr
      * @param portNr
      */
     void enableJvmDebug(String portNr = "5005") {
 
-
-        assert !created: "Error, cant enable JVM Debug for a container that has already been created"
+        log.info("Enabling JVM debug for port $portNr")
         debugPort = portNr
+        if (jvmDebugEnabled) {
+            log.debug("\tJVM Debug is already enabled")
+            return
+        }
+
+
         jvmSupportRecommendedArgs += ["-Xdebug", "-Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n"]
+    }
+
+    /**
+     * Checks if jvm debug is enabled for a container that has been created
+     * @return
+     */
+    boolean isJvmDebugEnabled() {
+       hasEnv("-Xrunjdwp:transport=dt_socket,address=*:${debugPort},server=y,suspend=n")
     }
 
     /**
