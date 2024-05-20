@@ -96,7 +96,7 @@ class JsmDevDeployment implements Deployment {
     boolean setupDeployment() {
 
 
-        srcSyncer = DirectorySyncer.createSyncToVolume(srcCodePaths, srcCodeVolume.name, "-avh --chown=2001:2001")
+        srcSyncer = DirectorySyncer.createSyncToVolume(srcCodePaths, srcCodeVolume.name, "SrcSyncer", "-avh --chown=2001:2001")
         allureContainer.created ?: allureContainer.createContainer()
         allureContainer.startContainer()
 

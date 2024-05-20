@@ -76,6 +76,22 @@ class DockerClientDS extends DockerClientImpl {
     }
 
 
+    Volume getOrCreateVolume(String volumeName) {
+        Volume volume = getVolumesWithName(volumeName).find { true }
+
+        if (volume) {
+            log.debug("\tFound existing volume:" + volume.name)
+        } else {
+            log.debug("\tCreating new volume $volumeName")
+            EngineResponseContent<Volume> volumeResponse = createVolume(volumeName)
+            volume = volumeResponse?.content
+            assert volume: "Error creating volume $volumeName, " + volumeResponse?.getStatus()?.text
+            log.debug("\t\tCreated destination volume:" + volume.name)
+        }
+
+        return volume
+    }
+
     ArrayList<Volume> getVolumesWithName(String name) {
         EngineResponseContent<VolumeListResponse> response = volumes("{\"name\":[\"$name\"]}")
 

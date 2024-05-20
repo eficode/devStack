@@ -2,8 +2,10 @@ package com.eficode.devstack.container.impl
 
 import com.eficode.devstack.DevStackSpec
 import com.eficode.devstack.util.DirectorySyncer
+import com.eficode.devstack.util.ImageSummaryDS
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.MountPoint
+import de.gesellix.docker.remote.api.Volume
 import org.slf4j.LoggerFactory
 
 
@@ -42,13 +44,13 @@ class DirectorySyncerTest extends DevStackSpec {
         !volumeExists(uniqueVolumeName) ?: dockerClient.rmVolume(uniqueVolumeName)
         log.debug("\tWill use sync to Docker volume:" + uniqueVolumeName)
 
-        DirectorySyncer firstSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        DirectorySyncer firstSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer", "-avh --delete", dockerRemoteHost, dockerCertPath )
         log.info("\tCreated first sync container: ${firstSyncer.containerName} (${firstSyncer.shortId})")
         Integer containersAfterFirst = firstSyncer.dockerClient.ps(true).content.size()
         log.info("\t\tDocker engine now has a total of ${containersAfterFirst} contianers")
 
         when: "Creating second sync container"
-        DirectorySyncer secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        DirectorySyncer secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer","-avh --delete", dockerRemoteHost, dockerCertPath )
         log.info("\tCreated second sync container: ${secondSyncer.containerName} (${secondSyncer.shortId})")
 
         then: "They should have the same ID"
@@ -60,7 +62,7 @@ class DirectorySyncerTest extends DevStackSpec {
         when: "Stopping the sync container, and creating another duplicate"
         firstSyncer.stopContainer()
         assert !firstSyncer.running
-        secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer","-avh --delete", dockerRemoteHost, dockerCertPath )
 
         then:"The duplicate should have been automatically started"
         secondSyncer.running
@@ -73,6 +75,62 @@ class DirectorySyncerTest extends DevStackSpec {
         dockerClient.rmVolume(uniqueVolumeName)
 
 
+
+    }
+
+
+    def "Test create createSyncVolumeToVolume"() {
+
+        setup:
+        log.info("Testing createSyncVolumeToVolume")
+        Volume srcVolume = dockerClient.getOrCreateVolume("srcVolume" + System.nanoTime().toString().takeRight(3))
+        Volume destVolume = dockerClient.getOrCreateVolume("destVolume" + System.nanoTime().toString().takeRight(3))
+        log.info("\tWill use src volume:" + srcVolume)
+        log.info("\tWill use dest volume:" + destVolume)
+
+
+        when: "Creating two containers with two different default users"
+        UbuntuContainer srcContainer = new UbuntuContainer()
+        srcContainer.containerName = "SrcContainer"
+        srcContainer.prepareVolumeMount(srcVolume.name, "/mnt/volume", false)
+        srcContainer.user = "1001:1001"
+        srcContainer.createSleepyContainer()
+        srcContainer.startContainer()
+        srcContainer.runBashCommandInContainer(ImageSummaryDS.getReplaceUserScriptBody("ubuntu", "1000", "ubuntu", "1000", "ubuntusrc", "1001", "ubuntusrc", "1001"),10, "root" )
+        srcContainer.runBashCommandInContainer("chown 1001:1001 -R /mnt/volume", 5, "root")
+
+
+        UbuntuContainer destContainer = new UbuntuContainer()
+        destContainer.containerName = "DestContainer"
+        destContainer.prepareVolumeMount(destVolume.name, "/mnt/volume", false)
+        destContainer.user = "1002:1002"
+        destContainer.createSleepyContainer()
+        destContainer.startContainer()
+        destContainer.runBashCommandInContainer(ImageSummaryDS.getReplaceUserScriptBody("ubuntu", "1000", "ubuntu", "1000", "ubuntudest", "1002", "ubuntudest", "1002"),10, "root" )
+        destContainer.runBashCommandInContainer("chown 1002:1002 -R /mnt/volume", 5, "root")
+
+        then: "When checking user id, they should be different"
+        srcContainer.runBashCommandInContainer("id -u").contains("1001")
+        destContainer.runBashCommandInContainer("id -u").contains("1002")
+
+
+        when: "Creating the syncer"
+
+        DirectorySyncer syncer = DirectorySyncer.syncBetweenVolumesAndUsers(srcVolume.name, destVolume.name, "1002:1002")
+        srcContainer.runBashCommandInContainer("touch /mnt/volume/createdInSource")
+        sleep(1000)
+        then:
+        destContainer.runBashCommandInContainer("ls -l /mnt/volume/createdInSource && echo Status: \$?").contains("Status: 0")
+        destContainer.runBashCommandInContainer("echo edited >> /mnt/volume/createdInSource && echo Status: \$?").contains("Status: 0")
+        destContainer.runBashCommandInContainer("rm /mnt/volume/createdInSource && echo Status: \$?").contains("Status: 0")
+
+
+        cleanup:
+        srcContainer.stopAndRemoveContainer()
+        destContainer.stopAndRemoveContainer()
+        syncer.stopAndRemoveContainer()
+        dockerClient.manageVolume.rmVolume(srcVolume.name)
+        dockerClient.manageVolume.rmVolume(destVolume.name)
 
     }
 
@@ -93,7 +151,7 @@ class DirectorySyncerTest extends DevStackSpec {
         when: "When creating syncer"
 
         assert !volumeExists(uniqueVolumeName): "Destination volume already exists"
-        DirectorySyncer syncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        DirectorySyncer syncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer", "-avh --delete", dockerRemoteHost, dockerCertPath )
         log.info("\tCreated sync container: ${syncer.containerName} (${syncer.shortId})")
         ContainerInspectResponse containerInspect = syncer.inspectContainer()
 

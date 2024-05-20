@@ -3,6 +3,7 @@ package com.eficode.devstack.util
 import com.eficode.devstack.container.Container
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.gesellix.docker.client.EngineResponseContent
+import de.gesellix.docker.client.network.ManageNetworkClient
 import de.gesellix.docker.remote.api.ContainerSummary
 import de.gesellix.docker.remote.api.Mount
 import de.gesellix.docker.remote.api.MountPoint
@@ -33,13 +34,14 @@ class DirectorySyncer implements Container {
      */
     DirectorySyncer (DockerClientDS dockerClient, ContainerSummary summary) {
 
-        DirectorySyncer syncer = new DirectorySyncer(dockerClient.host, dockerClient.certPath)
-        syncer.containerName = summary.names.first().replaceFirst("/", "")
+        this.dockerClient = dockerClient
+        this.networkClient = dockerClient.getManageNetwork() as ManageNetworkClient
+        this.containerName = summary.names.first().replaceFirst("/", "")
 
 
     }
 
-    static String getSyncScript(String rsyncOptions = "-avh") {
+    static String getSyncScript(String rsyncOptions = "-avh", String rsyncSrc = " /mnt/src/", String rsyncDest = " /mnt/dest/") {
 
         return """
         
@@ -57,7 +59,7 @@ class DirectorySyncer implements Container {
         
         function execute() {
             eval "\$@"
-                rsync $rsyncOptions /mnt/src/*/ /mnt/dest/ 
+                rsync $rsyncOptions $rsyncSrc $rsyncDest
         }
         
         execute""
@@ -105,7 +107,8 @@ class DirectorySyncer implements Container {
      */
     DirectorySyncer getDuplicateContainer() {
 
-        Map filterMap = [name: ["DirectorySyncer.*"], "volume": this.preparedMounts.collect { it.target }]
+
+        Map filterMap = [name: [this.containerName + ".*"], "volume": this.preparedMounts.collect { it.target }]
         String filterString = new ObjectMapper().writeValueAsString(filterMap)
         ArrayList<ContainerSummary> looselyMatchingContainers = dockerClient.ps(true, null, false, filterString).content
         ArrayList<ContainerSummary> matchingContainers = []
@@ -175,25 +178,15 @@ class DirectorySyncer implements Container {
      * @param dockerCertPath Docker certs to use
      * @return
      */
-    static DirectorySyncer createSyncToVolume(ArrayList<String> hostAbsSourcePaths, String destVolumeName, String rsyncOptions = "-avh",  String containerName = "",String dockerHost = "", String dockerCertPath = "") {
+    static DirectorySyncer createSyncToVolume(ArrayList<String> hostAbsSourcePaths, String destVolumeName, String containerName, String rsyncOptions = "-avh",  String dockerHost = "", String dockerCertPath = "") {
 
         DirectorySyncer container = new DirectorySyncer(dockerHost, dockerCertPath)
         Logger log = container.log
 
-        container.containerName = container.getAvailableContainerName()
-        container.prepareCustomEnvVar(["syncScript=${getSyncScript(rsyncOptions)}"])
+        container.containerName = containerName ?: container.getAvailableContainerName()
+        container.prepareCustomEnvVar(["syncScript=${getSyncScript(rsyncOptions, "/mnt/src/*/")}"])
 
-        Volume volume = container.dockerClient.getVolumesWithName(destVolumeName).find { true }
-
-        if (volume) {
-            log.debug("\tFound existing volume:" + volume.name)
-        } else {
-            log.debug("\tCreating new volume $destVolumeName")
-            EngineResponseContent<Volume> volumeResponse = container.dockerClient.createVolume(destVolumeName)
-            volume = volumeResponse?.content
-            assert volume: "Error creating volume $destVolumeName, " + volumeResponse?.getStatus()?.text
-            log.debug("\t\tCreated volume:" + volume.name)
-        }
+        Volume volume = container.dockerClient.getOrCreateVolume(destVolumeName)
 
         container.prepareVolumeMount(volume.name, "/mnt/dest/", false)
 
@@ -224,5 +217,62 @@ class DirectorySyncer implements Container {
         return container
     }
 
+    /**
+     * Creates a DirectorySyncer intended to sync files between two volumes and replacing the owner of the synced files so that
+     * the destination container user has access to.
+     * @param srcVolumeName The volume to sync from (the root of this will be synced)
+     * @param destVolumeName The destination volume where files should be synced to, and where the owner will be changed
+     * @param destUser The destination user and group that the file owner will be changed to, ex: 1001:1001
+     * @return
+     */
+    static DirectorySyncer syncBetweenVolumesAndUsers(String srcVolumeName, String destVolumeName, String destUser) {
+
+        DirectorySyncer syncer =  createSyncVolumeToVolume(srcVolumeName, destVolumeName, "-avhog --chown $destUser")
+
+        return syncer
+    }
+
+
+    /**
+     * Creates a DirectorySyncer which synces files between the roots of two docker volumes
+     * @param srcVolumeName The source volume to sync from
+     * @param destVolumeName The destination volume to sync to
+     * @param rsyncOptions Options to pass to rsync, default: -avh
+     * @param containerName Name of the sync container
+     * @param dockerHost
+     * @param dockerCertPath
+     * @return
+     */
+    static DirectorySyncer createSyncVolumeToVolume(String srcVolumeName, String destVolumeName, String rsyncOptions = "-avh",  String containerName = "",String dockerHost = "", String dockerCertPath = "") {
+
+        DirectorySyncer container = new DirectorySyncer(dockerHost, dockerCertPath)
+        Logger log = container.log
+
+        container.containerName = containerName ?: container.getAvailableContainerName()
+        container.prepareCustomEnvVar(["syncScript=${getSyncScript(rsyncOptions)}"])
+
+        Volume destVolume = container.dockerClient.getOrCreateVolume(destVolumeName)
+        Volume srcVolume = container.dockerClient.getOrCreateVolume(srcVolumeName)
+
+        container.prepareVolumeMount(srcVolume.name, "/mnt/src/", false)
+        container.prepareVolumeMount(destVolume.name, "/mnt/dest/", false)
+
+
+        DirectorySyncer duplicate = container.getDuplicateContainer()
+        if (duplicate) {
+            log.info("\tFound an existing DirectorySyncer with same mount points:" + duplicate.shortId)
+            if (!duplicate.running) {
+                log.debug("\t" * 2 + "Duplicate is not running, starting it")
+                duplicate.startContainer()
+            }
+            log.info("\t" * 2 + "Returning duplicate instead of creating a new one")
+            return duplicate
+        }
+
+        container.createContainer(["/bin/sh", "-c", "echo \"\$syncScript\" > /syncScript.sh && /bin/sh syncScript.sh"], [])
+        container.startContainer()
+
+        return container
+    }
 
 }
