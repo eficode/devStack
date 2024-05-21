@@ -6,8 +6,6 @@ import com.eficode.devstack.container.impl.JsmContainer
 import com.eficode.devstack.deployment.Deployment
 import com.eficode.devstack.util.DirectorySyncer
 import com.eficode.devstack.util.DockerClientDS
-import de.gesellix.docker.client.DockerClient
-import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.remote.api.Volume
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -27,7 +25,9 @@ class JsmDevDeployment implements Deployment {
     Volume srcCodeVolume
 
     AllureContainer allureContainer
+    Volume jiraReportVolume
     Volume allureReportVolume
+    DirectorySyncer reportSyncer
 
     DockerClientDS dockerClient
 
@@ -42,17 +42,27 @@ class JsmDevDeployment implements Deployment {
         allureContainer.containerName = componentsPrefix + "-reporter"
         dockerClient = allureContainer.dockerClient
 
-        allureReportVolume = getOrCreateVolume( componentsPrefix+ "-reports")
+
+        allureReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-allureReports")
+        jiraReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-jiraReports")
         allureContainer.prepareCustomEnvVar(["CHECK_RESULTS_EVERY_SECONDS=3", "KEEP_HISTORY=1", "KEEP_HISTORY_LATEST=30"])
-        allureContainer.prepareVolumeMount(allureReportVolume.name, "/app/allure-results", false)
+        allureContainer.setResultsVolume(allureReportVolume.name)
 
 
-        srcCodeVolume = getOrCreateVolume(componentsPrefix + "-code")
+        srcCodeVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-code")
+        srcSyncer = DirectorySyncer.getDuplicateContainer(dockerClient, "SrcSyncer")
         this.srcCodePaths = srcCodePaths
+
+        if (srcSyncer?.created) {
+            log.warn("Old SrcSyncer container exists, removing it before proceeding")
+            srcSyncer.stopAndRemoveContainer()
+            srcSyncer = null
+        }
+
 
         subDeployments.add(new JsmH2Deployment(jiraBaseUrl, dockerHost, dockerCertPath))
         jsmDeployment.jsmContainer.prepareVolumeMount(srcCodeVolume.name, "/var/atlassian/application-data/jira/scripts/", false)
-        jsmDeployment.jsmContainer.prepareVolumeMount(allureReportVolume.name, "/var/atlassian/application-data/jira/allure-results/", false)
+        jsmDeployment.jsmContainer.prepareVolumeMount(jiraReportVolume.name, "/var/atlassian/application-data/jira/allure-results/", false)
 
 
     }
@@ -68,7 +78,7 @@ class JsmDevDeployment implements Deployment {
 
     @Override
     ArrayList<Container> getContainers() {
-        return [srcSyncer, allureContainer, jsmContainer]
+        return [srcSyncer, allureContainer, jsmContainer, reportSyncer]
     }
 
     @Override
@@ -76,20 +86,34 @@ class JsmDevDeployment implements Deployment {
         throw new InputMismatchException("Not implemented")
     }
 
-    Volume getOrCreateVolume(String volumeName) {
-        Volume volume = dockerClient.getVolumesWithName(volumeName).find { true }
+    @Override
+    boolean stopAndRemoveDeployment() {
 
-        if (volume) {
-            log.debug("\tFound existing volume:" + volume.name)
-        } else {
-            log.debug("\tCreating new volume $volumeName")
-            EngineResponseContent<Volume> volumeResponse = dockerClient.createVolume(volumeName)
-            volume = volumeResponse?.content
-            assert volume: "Error creating volume $volumeName, " + volumeResponse?.getStatus()?.text
-            log.debug("\t\tCreated volume:" + volume.name)
+        Volume jsmSnapshotVolume
+
+        try {
+            jsmSnapshotVolume = jsmContainer.getSnapshotVolume()
+        }catch (ignored){}
+
+
+        Boolean success = Deployment.super.stopAndRemoveDeployment()
+        if (jiraReportVolume) {
+            dockerClient.rmVolume(jiraReportVolume.name)
+        }
+        if (allureReportVolume) {
+            dockerClient.rmVolume(allureReportVolume.name)
         }
 
-        return volume
+        if (srcCodeVolume) {
+            dockerClient.rmVolume(srcCodeVolume.name)
+        }
+
+        if (jsmSnapshotVolume) {
+            dockerClient.rmVolume(jsmSnapshotVolume.name)
+        }
+
+        return success
+
     }
 
     @Override
@@ -97,11 +121,22 @@ class JsmDevDeployment implements Deployment {
 
 
         srcSyncer = DirectorySyncer.createSyncToVolume(srcCodePaths, srcCodeVolume.name, "SrcSyncer", "-avh --chown=2001:2001")
+
+
+        reportSyncer = DirectorySyncer.syncBetweenVolumesAndUsers(jiraReportVolume.name, allureReportVolume.name, "1000:1000", "ReportSyncer")
+
+
         allureContainer.created ?: allureContainer.createContainer()
         allureContainer.startContainer()
 
-        jsmDeployment.setupDeployment(true, false)
 
+        jsmDeployment.setupDeployment(true, true)
+        //Change owner of the mounted volume
+        jsmContainer.runBashCommandInContainer("chown -R jira:jira /var/atlassian/application-data/jira/allure-results", 10, "root")
+
+        if (jsmDeployment.jiraRest.scriptRunnerIsInstalled()) {
+            jsmDeployment.jiraRest.deploySpockEndpoint(['com.riadalabs.jira.plugins.insight' ])
+        }
 
     }
 
