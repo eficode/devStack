@@ -2,11 +2,8 @@ package com.eficode.devstack.util
 
 import com.eficode.devstack.container.Container
 import com.fasterxml.jackson.databind.ObjectMapper
-import de.gesellix.docker.client.EngineResponseContent
 import de.gesellix.docker.client.network.ManageNetworkClient
 import de.gesellix.docker.remote.api.ContainerSummary
-import de.gesellix.docker.remote.api.Mount
-import de.gesellix.docker.remote.api.MountPoint
 import de.gesellix.docker.remote.api.Volume
 import org.slf4j.Logger
 
@@ -41,7 +38,20 @@ class DirectorySyncer implements Container {
 
     }
 
-    static String getSyncScript(String rsyncOptions = "-avh", String rsyncSrc = " /mnt/src/", String rsyncDest = " /mnt/dest/") {
+    static String getPollBasedSyncScript(String rsyncOptions = "-avh", String rsyncSrc = "/mnt/src/", String rsyncDest = "/mnt/dest/", Double intervalS = 1.5) {
+
+        return """
+        apk update
+        apk add rsync
+        watch -n $intervalS "rsync $rsyncOptions ${rsyncSrc.replace(" ", "\\ ")} ${rsyncDest.replace(" ", "\\ ")}"
+        
+        """.stripIndent()
+
+    }
+
+
+    //Has problems with recursive dirs added after start
+    static String getEventBasedSyncScript(String rsyncOptions = "-avh", String rsyncSrc = " /mnt/src/", String rsyncDest = " /mnt/dest/") {
 
         return """
         
@@ -56,6 +66,7 @@ class DirectorySyncer implements Container {
             exit 1
         fi
         
+        echo inotifywait is installed
         
         function execute() {
             eval "\$@"
@@ -63,7 +74,7 @@ class DirectorySyncer implements Container {
         }
         
         execute""
-        
+
         inotifywait --recursive --monitor --format "%e %w%f" \\
         --event modify,create,delete,moved_from,close_write /mnt/src \\
         | while read changed; do
@@ -98,6 +109,13 @@ class DirectorySyncer implements Container {
 
     }
 
+    static DirectorySyncer getDuplicateContainer(DockerClientDS dockerClientDS, String containerName) {
+        DirectorySyncer syncer = new DirectorySyncer(dockerClientDS.host, dockerClientDS.certPath)
+        syncer.containerName = containerName
+
+        return syncer.getDuplicateContainer()
+    }
+
 
 
     /**
@@ -108,34 +126,15 @@ class DirectorySyncer implements Container {
     DirectorySyncer getDuplicateContainer() {
 
 
-        Map filterMap = [name: [this.containerName + ".*"], "volume": this.preparedMounts.collect { it.target }]
+        Map filterMap = [name: [this.containerName]]
         String filterString = new ObjectMapper().writeValueAsString(filterMap)
-        ArrayList<ContainerSummary> looselyMatchingContainers = dockerClient.ps(true, null, false, filterString).content
-        ArrayList<ContainerSummary> matchingContainers = []
-        ArrayList<String> myMounts = this.preparedMounts.target
-        myMounts += this.preparedMounts.findAll {it.type == Mount.Type.Volume}.source
-        if (looselyMatchingContainers) {
-            matchingContainers = looselyMatchingContainers.findAll { matchingContainer ->
-
-                ArrayList<String> matchingMounts = matchingContainer.mounts.destination
-                matchingMounts += matchingContainer.mounts.findAll {it.type == MountPoint.Type.Volume}.name
-                //Handles the fact the mount points arent always given with a trailing /
-                Boolean mountsMatch = myMounts.every { myMount ->
-                    matchingMounts.any { it.equalsIgnoreCase(myMount) } ||
-                            matchingMounts.collect { it + "/" }.any { it.equalsIgnoreCase(myMount) }
-                }
-
-                return mountsMatch
-
-            }
-        }
-
-        if (matchingContainers.size() > 1) {
-            throw new InputMismatchException("Found multiple potential duplicate DirectorySyncer´s: " + matchingContainers.collect { it.id }.join(","))
-        } else if (matchingContainers.size() == 1) {
-            return new DirectorySyncer(dockerClient, matchingContainers.first())
-        } else {
+        ArrayList<ContainerSummary> matchingContainers = dockerClient.ps(true, null, false, filterString).content
+        if (matchingContainers.size() > 1){
+            throw new InputMismatchException("Error determining duplicate container based on name:" + this.containerName)
+        }else if (matchingContainers.size() == 0) {
             return null
+        }else {
+            return new DirectorySyncer(dockerClient, matchingContainers.first())
         }
 
     }
@@ -184,7 +183,7 @@ class DirectorySyncer implements Container {
         Logger log = container.log
 
         container.containerName = containerName ?: container.getAvailableContainerName()
-        container.prepareCustomEnvVar(["syncScript=${getSyncScript(rsyncOptions, "/mnt/src/*/")}"])
+        container.prepareCustomEnvVar(["syncScript=${getPollBasedSyncScript(rsyncOptions, "/mnt/src/*/")}"])
 
         Volume volume = container.dockerClient.getOrCreateVolume(destVolumeName)
 
@@ -211,7 +210,8 @@ class DirectorySyncer implements Container {
             return duplicate
         }
 
-        container.createContainer(["/bin/sh", "-c", "echo \"\$syncScript\" > /syncScript.sh && /bin/sh syncScript.sh"], [])
+
+        container.createContainer([container.defaultShell, "-c", "echo \"\$syncScript\" > /syncScript.sh && ${container.defaultShell} syncScript.sh"], [])
         container.startContainer()
 
         return container
@@ -225,9 +225,9 @@ class DirectorySyncer implements Container {
      * @param destUser The destination user and group that the file owner will be changed to, ex: 1001:1001
      * @return
      */
-    static DirectorySyncer syncBetweenVolumesAndUsers(String srcVolumeName, String destVolumeName, String destUser) {
+    static DirectorySyncer syncBetweenVolumesAndUsers(String srcVolumeName, String destVolumeName, String destUser, String containerName = "") {
 
-        DirectorySyncer syncer =  createSyncVolumeToVolume(srcVolumeName, destVolumeName, "-avhog --chown $destUser")
+        DirectorySyncer syncer =  createSyncVolumeToVolume(srcVolumeName, destVolumeName, "-avhog --chown $destUser", containerName)
 
         return syncer
     }
@@ -249,7 +249,7 @@ class DirectorySyncer implements Container {
         Logger log = container.log
 
         container.containerName = containerName ?: container.getAvailableContainerName()
-        container.prepareCustomEnvVar(["syncScript=${getSyncScript(rsyncOptions)}"])
+        container.prepareCustomEnvVar(["syncScript=${getPollBasedSyncScript(rsyncOptions)}"])
 
         Volume destVolume = container.dockerClient.getOrCreateVolume(destVolumeName)
         Volume srcVolume = container.dockerClient.getOrCreateVolume(srcVolumeName)
