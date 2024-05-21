@@ -2,8 +2,10 @@ package com.eficode.devstack.container.impl
 
 import com.eficode.devstack.DevStackSpec
 import com.eficode.devstack.util.DirectorySyncer
+import com.eficode.devstack.util.ImageSummaryDS
 import de.gesellix.docker.remote.api.ContainerInspectResponse
 import de.gesellix.docker.remote.api.MountPoint
+import de.gesellix.docker.remote.api.Volume
 import org.slf4j.LoggerFactory
 
 
@@ -42,27 +44,27 @@ class DirectorySyncerTest extends DevStackSpec {
         !volumeExists(uniqueVolumeName) ?: dockerClient.rmVolume(uniqueVolumeName)
         log.debug("\tWill use sync to Docker volume:" + uniqueVolumeName)
 
-        DirectorySyncer firstSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        DirectorySyncer firstSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer", "-avh --delete", dockerRemoteHost, dockerCertPath)
         log.info("\tCreated first sync container: ${firstSyncer.containerName} (${firstSyncer.shortId})")
         Integer containersAfterFirst = firstSyncer.dockerClient.ps(true).content.size()
         log.info("\t\tDocker engine now has a total of ${containersAfterFirst} contianers")
 
         when: "Creating second sync container"
-        DirectorySyncer secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        DirectorySyncer secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer", "-avh --delete", dockerRemoteHost, dockerCertPath)
         log.info("\tCreated second sync container: ${secondSyncer.containerName} (${secondSyncer.shortId})")
 
         then: "They should have the same ID"
-        assert firstSyncer.id == secondSyncer.id : "The second container doesnt have the same id"
-        assert containersAfterFirst == secondSyncer.dockerClient.ps(true).content.size() : "The number of containers changed after creating the second one"
+        assert firstSyncer.id == secondSyncer.id: "The second container doesnt have the same id"
+        assert containersAfterFirst == secondSyncer.dockerClient.ps(true).content.size(): "The number of containers changed after creating the second one"
         assert secondSyncer.running
         log.info("\tA duplicate container was not created, instead the first one was returned")
 
         when: "Stopping the sync container, and creating another duplicate"
         firstSyncer.stopContainer()
         assert !firstSyncer.running
-        secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        secondSyncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer", "-avh --delete", dockerRemoteHost, dockerCertPath)
 
-        then:"The duplicate should have been automatically started"
+        then: "The duplicate should have been automatically started"
         secondSyncer.running
 
 
@@ -73,6 +75,61 @@ class DirectorySyncerTest extends DevStackSpec {
         dockerClient.rmVolume(uniqueVolumeName)
 
 
+    }
+
+
+    def "Test create createSyncVolumeToVolume"() {
+
+        setup:
+        log.info("Testing createSyncVolumeToVolume")
+        Volume srcVolume = dockerClient.getOrCreateVolume("srcVolume" + System.nanoTime().toString().takeRight(3))
+        Volume destVolume = dockerClient.getOrCreateVolume("destVolume" + System.nanoTime().toString().takeRight(3))
+        log.info("\tWill use src volume:" + srcVolume)
+        log.info("\tWill use dest volume:" + destVolume)
+
+
+        when: "Creating two containers with two different default users"
+        UbuntuContainer srcContainer = new UbuntuContainer()
+        srcContainer.containerName = "SrcContainer"
+        srcContainer.prepareVolumeMount(srcVolume.name, "/mnt/volume", false)
+        srcContainer.user = "1001:1001"
+        srcContainer.createSleepyContainer()
+        srcContainer.startContainer()
+        srcContainer.runBashCommandInContainer(ImageSummaryDS.getReplaceUserScriptBody("ubuntu", "1000", "ubuntu", "1000", "ubuntusrc", "1001", "ubuntusrc", "1001"), 10, "root")
+        srcContainer.runBashCommandInContainer("chown 1001:1001 -R /mnt/volume", 5, "root")
+
+
+        UbuntuContainer destContainer = new UbuntuContainer()
+        destContainer.containerName = "DestContainer"
+        destContainer.prepareVolumeMount(destVolume.name, "/mnt/volume", false)
+        destContainer.user = "1002:1002"
+        destContainer.createSleepyContainer()
+        destContainer.startContainer()
+        destContainer.runBashCommandInContainer(ImageSummaryDS.getReplaceUserScriptBody("ubuntu", "1000", "ubuntu", "1000", "ubuntudest", "1002", "ubuntudest", "1002"), 10, "root")
+        destContainer.runBashCommandInContainer("chown 1002:1002 -R /mnt/volume", 5, "root")
+
+        then: "When checking user id, they should be different"
+        srcContainer.runBashCommandInContainer("id -u").contains("1001")
+        destContainer.runBashCommandInContainer("id -u").contains("1002")
+
+
+        when: "Creating the syncer"
+
+        DirectorySyncer syncer = DirectorySyncer.syncBetweenVolumesAndUsers(srcVolume.name, destVolume.name, "1002:1002")
+        srcContainer.runBashCommandInContainer("touch /mnt/volume/createdInSource")
+        sleep(1000)
+        then:
+        destContainer.runBashCommandInContainer("ls -l /mnt/volume/createdInSource && echo Status: \$?").contains("Status: 0")
+        destContainer.runBashCommandInContainer("echo edited >> /mnt/volume/createdInSource && echo Status: \$?").contains("Status: 0")
+        destContainer.runBashCommandInContainer("rm /mnt/volume/createdInSource && echo Status: \$?").contains("Status: 0")
+
+
+        cleanup:
+        srcContainer.stopAndRemoveContainer()
+        destContainer.stopAndRemoveContainer()
+        syncer.stopAndRemoveContainer()
+        dockerClient.manageVolume.rmVolume(srcVolume.name)
+        dockerClient.manageVolume.rmVolume(destVolume.name)
 
     }
 
@@ -93,7 +150,7 @@ class DirectorySyncerTest extends DevStackSpec {
         when: "When creating syncer"
 
         assert !volumeExists(uniqueVolumeName): "Destination volume already exists"
-        DirectorySyncer syncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "-avh --delete", dockerRemoteHost, dockerCertPath )
+        DirectorySyncer syncer = DirectorySyncer.createSyncToVolume([srcDir1.canonicalPath, srcDir2.canonicalPath], uniqueVolumeName, "DirSyncer", "-avh --delete", dockerRemoteHost, dockerCertPath)
         log.info("\tCreated sync container: ${syncer.containerName} (${syncer.shortId})")
         ContainerInspectResponse containerInspect = syncer.inspectContainer()
 
@@ -127,14 +184,16 @@ class DirectorySyncerTest extends DevStackSpec {
         log.debug("\tContainer successfully synced the files to destination dir")
 
         when: "Creating a recursive file"
-        File recursiveFile = new File(srcDir1.canonicalPath + "/subDir/subFile.temp").createParentDirectories()
+        File recursiveFile = new File(srcDir1.canonicalPath + "/subDir/subDir2/subDir3/subDir4/subDir5/subFile.temp")
+        recursiveFile.createParentDirectories()
+        sleep(2000) //Make sure that we dont trigger on the dir creation, but on the recursive file
         recursiveFile.createNewFile()
         recursiveFile.text = System.nanoTime()
         log.info("\tCreate recursive file:" + recursiveFile.canonicalPath)
 
         then: "The sync container should see the new source file, and sync it to a new recursive dir"
         sleep(2000)
-        syncer.runBashCommandInContainer("cat /mnt/dest/subDir/subFile.temp").toString().contains(recursiveFile.text)
+        syncer.runBashCommandInContainer("cat /mnt/dest/subDir/subDir2/subDir3/subDir4/subDir5/subFile.temp").toString().contains(recursiveFile.text)
         log.info("\t\tFile was successfully synced")
 
 
@@ -153,27 +212,27 @@ class DirectorySyncerTest extends DevStackSpec {
         syncer.runBashCommandInContainer("cat /mnt/dest/${srcFile2.name}").toString().containsIgnoreCase(srcFile2.text)
         log.debug("\t\tContainer successfully synced the changes")
 
-        when:"Creating a new container and attaching it to the synced volume"
+        when: "Creating a new container and attaching it to the synced volume"
         AlpineContainer secondContainer = new AlpineContainer(dockerRemoteHost, dockerCertPath)
-        secondContainer.containerName = syncer.containerName  + "-companion"
+        secondContainer.containerName = syncer.containerName + "-companion"
         secondContainer.prepareVolumeMount(uniqueVolumeName, "/mnt/syncDir", false)
         secondContainer.createSleepyContainer()
 
 
-        then:"The second container should see the still remaining synced files"
-        assert secondContainer.startContainer() : "Error creating/staring second container"
+        then: "The second container should see the still remaining synced files"
+        assert secondContainer.startContainer(): "Error creating/staring second container"
         log.info("\tCreated an started second container ${secondContainer.shortId}")
-        assert secondContainer.mounts.any { it.type == MountPoint.Type.Volume && it.RW == true} : "Second container did not mount the shared volume"
+        assert secondContainer.mounts.any { it.type == MountPoint.Type.Volume && it.RW == true }: "Second container did not mount the shared volume"
         log.info("\tSecond container was attached to volume:" + uniqueVolumeName)
-        log.info("\tChecking that second container can access synced file:" + " /mnt/syncDir/${srcFile2.name}" )
-        assert secondContainer.runBashCommandInContainer("cat /mnt/syncDir/${srcFile2.name}").toString().containsIgnoreCase(srcFile2.text) : "Error reading synced file in second container:" + " /mnt/syncDir/${srcFile2.name}"
+        log.info("\tChecking that second container can access synced file:" + " /mnt/syncDir/${srcFile2.name}")
+        assert secondContainer.runBashCommandInContainer("cat /mnt/syncDir/${srcFile2.name}").toString().containsIgnoreCase(srcFile2.text): "Error reading synced file in second container:" + " /mnt/syncDir/${srcFile2.name}"
 
         log.info("\tChecking that second container can access recursive synced file")
-        assert secondContainer.runBashCommandInContainer("cat /mnt/syncDir/subDir/subFile.temp").toString().contains(recursiveFile.text)
+        assert secondContainer.runBashCommandInContainer("cat /mnt/syncDir/subDir/subDir2/subDir3/subDir4/subDir5/subFile.temp").toString().contains(recursiveFile.text)
         log.info("\t\tContainer can access that file")
         cleanup:
-        assert syncer.stopAndRemoveContainer()
-        assert secondContainer?.stopAndRemoveContainer()
+        syncer.stopAndRemoveContainer()
+        secondContainer?.stopAndRemoveContainer()
         srcDir1.deleteDir()
         srcDir2.deleteDir()
         dockerClient.rmVolume(containerInspect.mounts.find { it.type == MountPoint.Type.Volume }.name)

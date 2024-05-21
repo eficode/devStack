@@ -476,10 +476,7 @@ trait Container {
 
 
             if (self.isRunning()) {
-                dockerClient.stop(self.containerId, timeoutS)
-                if (self.isRunning()) {
-                    dockerClient.kill(self.containerId)
-                }
+                dockerClient.kill(self.containerId)
             }
 
             dockerClient.rm(self.containerId)
