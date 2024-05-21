@@ -93,7 +93,7 @@ class JsmDevDeploymentSpec extends DevStackSpec {
                 .addAppToInstall(MarketplaceApp.getScriptRunnerVersion().downloadUrl, srLicenseFile.text)
                 .build()
 
-        
+
 
         jsmDevDep.setupDeployment()
         ArrayList<ContainerSummary> containersAfter = getContainers()
