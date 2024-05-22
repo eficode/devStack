@@ -27,6 +27,8 @@ class JsmDevDeployment implements Deployment {
     Volume allureReportVolume
     DirectorySyncer reportSyncer
 
+    private Builder builder
+
     DockerClientDS dockerClient
 
     //Used when naming various Docker components
@@ -127,8 +129,7 @@ class JsmDevDeployment implements Deployment {
         allureContainer.created ?: allureContainer.createContainer()
         allureContainer.startContainer()
 
-
-        jsmDeployment.setupDeployment(true, true)
+        jsmDeployment.setupDeployment(builder.useSnapshotIfAvailable, builder.snapshotAfterCreation)
         //Change owner of the mounted volume
         jsmContainer.runBashCommandInContainer("chown -R jira:jira /var/atlassian/application-data/jira/allure-results", 10, "root")
 
@@ -145,6 +146,8 @@ class JsmDevDeployment implements Deployment {
         private String jsmVersion = "latest"
         private String jsmJvmDebugPort = "5005"
         private Boolean enableJsmDooD = false
+        private Boolean useSnapshotIfAvailable = false
+        private Boolean snapshotAfterCreation = false
 
         private Map<String, String> appsToInstall = [:]
 
@@ -194,6 +197,16 @@ class JsmDevDeployment implements Deployment {
             return this
         }
 
+        Builder useSnapshotIfAvailable( ) {
+            this.useSnapshotIfAvailable = true
+            return this
+        }
+
+        Builder snapshotAfterCreation( ) {
+            this.snapshotAfterCreation = true
+            return this
+        }
+
 
         JsmDevDeployment build() {
 
@@ -207,7 +220,7 @@ class JsmDevDeployment implements Deployment {
                 devDeployment.jsmDeployment.jsmContainer.prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock", false)
             }
             devDeployment.jsmDeployment.appsToInstall = this.appsToInstall
-
+            devDeployment.builder = this
 
             return devDeployment
 
