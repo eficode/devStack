@@ -85,30 +85,45 @@ class JsmDevDeploymentSpec extends DevStackSpec {
         JiraInstanceManagerRest jim = new JiraInstanceManagerRest(baseUrl)
 
 
-        when:
+        when: "When seting up the builder and running stopAndRemove"
         JsmDevDeployment jsmDevDep = new JsmDevDeployment.Builder(baseUrl, jsmLicenseFile.text, [localSrcDir.canonicalPath])
                 .setJsmJvmDebugPort("5005")
                 .setJsmVersion("latest")
                 .enableJsmDood()
                 .addAppToInstall(MarketplaceApp.getScriptRunnerVersion().downloadUrl, srLicenseFile.text)
+                .snapshotAfterCreation()
+                .useSnapshotIfAvailable()
                 .build()
 
 
+        jsmDevDep.stopAndRemoveDeployment()
 
+        then: "None of the parts should exist"
+        !jsmDevDep.jsmContainer?.created
+        !jsmDevDep.allureContainer?.created
+        !jsmDevDep.reportSyncer?.created
+        !jsmDevDep.srcSyncer?.created
+        !jsmDevDep.allureReportVolume?.usageData?.propertySize
+        !jsmDevDep.srcCodeVolume?.usageData?.propertySize
+
+
+        when:
+        Long initialSetupDuration = System.currentTimeMillis()
         jsmDevDep.setupDeployment()
+        initialSetupDuration = System.currentTimeMillis() - initialSetupDuration
         ArrayList<ContainerSummary> containersAfter = getContainers()
 
 
         then:
-        containersAfter.find {it.names.toString().contains("spockdev.localhost")}
-        containersAfter.find {it.names.toString().contains("spockdev.localhost-reporter")}
-        containersAfter.find {it.names.toString().contains("ReportSyncer")}
-        containersAfter.find {it.names.toString().contains("SrcSyncer")}
+        containersAfter.find { it.names.toString().contains("spockdev.localhost") }
+        containersAfter.find { it.names.toString().contains("spockdev.localhost-reporter") }
+        containersAfter.find { it.names.toString().contains("ReportSyncer") }
+        containersAfter.find { it.names.toString().contains("SrcSyncer") }
 
 
         when: "Creating a file in the local synced dir"
 
-        File localTestFile =  new File(localSrcDir, "com/eficode/atlassian/jira/jiraLocalScripts/JiraLocalSpockTest.groovy")
+        File localTestFile = new File(localSrcDir, "com/eficode/atlassian/jira/jiraLocalScripts/JiraLocalSpockTest.groovy")
         localTestFile.createParentDirectories()
         localTestFile.text = getSuccessfulSpockBody()
         sleep(2000)
@@ -119,21 +134,34 @@ class JsmDevDeploymentSpec extends DevStackSpec {
         expect:
         jsmDevDep.jsmContainer.appAppUploadEnabled
         jsmDevDep.jsmContainer.enableJvmDebug() == null
-        assert jim.isSpockEndpointDeployed(true) : "Spock endpoint was not deployed"
+        assert jim.isSpockEndpointDeployed(true): "Spock endpoint was not deployed"
 
-        when:"Running spocktest"
+        when: "Running spocktest"
         jim.runSpockTest("com.eficode.atlassian.jira.jiraLocalScripts.JiraLocalSpockTest", "", SpockOutputType.AllureReport, "allure-results/")
         sleep(2000)
         then:
         jsmDevDep.allureContainer.runBashCommandInContainer("ls -l /app/allure-results/")
         assert jsmDevDep.jsmContainer.runBashCommandInContainer("ls allure-results").first().split("\n").every { reportName ->
             jsmDevDep.allureContainer.runBashCommandInContainer("ls /app/allure-results/$reportName && echo Status: \$?").toString().contains("Status: 0")
-        } : "All Reports in JIRA container haven't been synced to Allure container"
+        }: "All Reports in JIRA container haven't been synced to Allure container"
 
+
+        when:"When triggering another setup of the same deployment"
+        String jsmCreatedTimestamp = jsmDevDep.jsmContainer.inspectContainer().created
+        String reportSyncerCreatedTimestamp = jsmDevDep.reportSyncer.inspectContainer().created
+        String srcSyncerCreatedTimestamp = jsmDevDep.srcSyncer.inspectContainer().created
+        Long snapshotSetupDuration = System.currentTimeMillis()
+        jsmDevDep.setupDeployment()
+        snapshotSetupDuration = System.currentTimeMillis() - snapshotSetupDuration
+
+        then: "Snapshot should be restored and containers remain the same"
+        jsmCreatedTimestamp == jsmDevDep.jsmContainer.inspectContainer().created
+        reportSyncerCreatedTimestamp == jsmDevDep.reportSyncer.inspectContainer().created
+        srcSyncerCreatedTimestamp == jsmDevDep.srcSyncer.inspectContainer().created
+        (snapshotSetupDuration * 2) < initialSetupDuration
 
         cleanup:
         jsmDevDep.stopAndRemoveDeployment()
-
 
 
     }

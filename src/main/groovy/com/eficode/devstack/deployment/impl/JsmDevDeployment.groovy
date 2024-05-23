@@ -27,6 +27,8 @@ class JsmDevDeployment implements Deployment {
     Volume allureReportVolume
     DirectorySyncer reportSyncer
 
+    private Builder builder
+
     DockerClientDS dockerClient
 
     //Used when naming various Docker components
@@ -35,35 +37,22 @@ class JsmDevDeployment implements Deployment {
     JsmDevDeployment(String jiraBaseUrl, String dockerHost, String dockerCertPath, ArrayList<String> srcCodePaths) {
 
         componentsPrefix = AllureContainer.extractDomainFromUrl(jiraBaseUrl)
+        subDeployments.add(new JsmH2Deployment(jiraBaseUrl, dockerHost, dockerCertPath))
+
 
         allureContainer = new AllureContainer(dockerHost, dockerCertPath)
         allureContainer.containerName = componentsPrefix + "-reporter"
         dockerClient = allureContainer.dockerClient
 
-
-        allureReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-allureReports")
-        jiraReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-jiraReports")
-        allureContainer.prepareCustomEnvVar(["CHECK_RESULTS_EVERY_SECONDS=3", "KEEP_HISTORY=1", "KEEP_HISTORY_LATEST=30"])
-        allureContainer.setResultsVolume(allureReportVolume.name)
-
-
-        srcCodeVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-code")
         srcSyncer = DirectorySyncer.getDuplicateContainer(dockerClient, "SrcSyncer")
+        reportSyncer = DirectorySyncer.getDuplicateContainer(dockerClient, "ReportSyncer")
+
+
+
         this.srcCodePaths = srcCodePaths
 
-        if (srcSyncer?.created) {
-            log.warn("Old SrcSyncer container exists, removing it before proceeding")
-            srcSyncer.stopAndRemoveContainer()
-            srcSyncer = null
-        }
-
-
-        subDeployments.add(new JsmH2Deployment(jiraBaseUrl, dockerHost, dockerCertPath))
-        jsmDeployment.jsmContainer.prepareVolumeMount(srcCodeVolume.name, "/var/atlassian/application-data/jira/scripts/", false)
-        jsmDeployment.jsmContainer.prepareVolumeMount(jiraReportVolume.name, "/var/atlassian/application-data/jira/allure-results/", false)
-
-
     }
+
 
     JsmH2Deployment getJsmDeployment() {
         return subDeployments.find { it instanceof JsmH2Deployment } as JsmH2Deployment
@@ -91,7 +80,8 @@ class JsmDevDeployment implements Deployment {
 
         try {
             jsmSnapshotVolume = jsmContainer.getSnapshotVolume()
-        }catch (ignored){}
+        } catch (ignored) {
+        }
 
 
         Boolean success = Deployment.super.stopAndRemoveDeployment()
@@ -118,22 +108,35 @@ class JsmDevDeployment implements Deployment {
     boolean setupDeployment() {
 
 
+
+        srcCodeVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-code")
+        allureReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-allureReports")
+        jiraReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-jiraReports")
+
+
         srcSyncer = DirectorySyncer.createSyncToVolume(srcCodePaths, srcCodeVolume.name, "SrcSyncer", "-avh --chown=2001:2001")
-
-
         reportSyncer = DirectorySyncer.syncBetweenVolumesAndUsers(jiraReportVolume.name, allureReportVolume.name, "1000:1000", "ReportSyncer")
+
+
+        allureContainer.prepareCustomEnvVar(["CHECK_RESULTS_EVERY_SECONDS=3", "KEEP_HISTORY=1", "KEEP_HISTORY_LATEST=30"])
+        allureContainer.setResultsVolume(allureReportVolume.name)
 
 
         allureContainer.created ?: allureContainer.createContainer()
         allureContainer.startContainer()
 
+        if (!jsmDeployment.jsmContainer.created) {
+            jsmDeployment.jsmContainer.prepareVolumeMount(srcCodeVolume.name, "/var/atlassian/application-data/jira/scripts/", false)
+            jsmDeployment.jsmContainer.prepareVolumeMount(jiraReportVolume.name, "/var/atlassian/application-data/jira/allure-results/", false)
 
-        jsmDeployment.setupDeployment(true, true)
+        }
+
+        jsmDeployment.setupDeployment(builder.useSnapshotIfAvailable, builder.snapshotAfterCreation)
         //Change owner of the mounted volume
         jsmContainer.runBashCommandInContainer("chown -R jira:jira /var/atlassian/application-data/jira/allure-results", 10, "root")
 
         if (jsmDeployment.jiraRest.scriptRunnerIsInstalled()) {
-            jsmDeployment.jiraRest.deploySpockEndpoint(['com.riadalabs.jira.plugins.insight' ])
+            jsmDeployment.jiraRest.deploySpockEndpoint(['com.riadalabs.jira.plugins.insight'])
         }
 
     }
@@ -145,6 +148,8 @@ class JsmDevDeployment implements Deployment {
         private String jsmVersion = "latest"
         private String jsmJvmDebugPort = "5005"
         private Boolean enableJsmDooD = false
+        private Boolean useSnapshotIfAvailable = false
+        private Boolean snapshotAfterCreation = false
 
         private Map<String, String> appsToInstall = [:]
 
@@ -194,6 +199,16 @@ class JsmDevDeployment implements Deployment {
             return this
         }
 
+        Builder useSnapshotIfAvailable() {
+            this.useSnapshotIfAvailable = true
+            return this
+        }
+
+        Builder snapshotAfterCreation() {
+            this.snapshotAfterCreation = true
+            return this
+        }
+
 
         JsmDevDeployment build() {
 
@@ -207,7 +222,7 @@ class JsmDevDeployment implements Deployment {
                 devDeployment.jsmDeployment.jsmContainer.prepareBindMount("/var/run/docker.sock", "/var/run/docker.sock", false)
             }
             devDeployment.jsmDeployment.appsToInstall = this.appsToInstall
-
+            devDeployment.builder = this
 
             return devDeployment
 
