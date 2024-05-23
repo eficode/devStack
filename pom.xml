@@ -136,6 +136,10 @@
             <url>https://github.com/eficode/JiraInstanceManagerRest/raw/packages/repository/</url>
         </repository>
         <repository>
+            <id>eficode-github-remoteSpock</id>
+            <url>https://github.com/eficode/remoteSpock/raw/packages/repository/</url>
+        </repository>
+        <repository>
             <id>eficode-github-BitbucketInstanceManagerRest</id>
             <url>https://github.com/eficode/BitbucketInstanceManagerRest/raw/packages/repository/</url>
         </repository>

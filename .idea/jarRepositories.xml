@@ -7,6 +7,11 @@
       <option name="url" value="https://repo.maven.apache.org/maven2" />
     </remote-repository>
     <remote-repository>
+      <option name="id" value="eficode-github-remoteSpock" />
+      <option name="name" value="eficode-github-remoteSpock" />
+      <option name="url" value="https://github.com/eficode/remoteSpock/raw/packages/repository/" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="eficode-github-BitbucketInstanceManagerRest" />
       <option name="name" value="eficode-github-BitbucketInstanceManagerRest" />
       <option name="url" value="https://github.com/eficode/BitbucketInstanceManagerRest/raw/packages/repository/" />
