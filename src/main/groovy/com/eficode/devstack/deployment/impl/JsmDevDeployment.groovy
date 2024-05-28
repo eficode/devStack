@@ -65,7 +65,7 @@ class JsmDevDeployment implements Deployment {
 
     @Override
     ArrayList<Container> getContainers() {
-        return [srcSyncer, allureContainer, jsmContainer, reportSyncer]
+        return [srcSyncer, allureContainer, jsmContainer, reportSyncer].findAll {it != null}
     }
 
     @Override
@@ -109,12 +109,14 @@ class JsmDevDeployment implements Deployment {
 
 
 
+
         srcCodeVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-code")
         allureReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-allureReports")
         jiraReportVolume = dockerClient.getOrCreateVolume(componentsPrefix + "-jiraReports")
 
-
-        srcSyncer = DirectorySyncer.createSyncToVolume(srcCodePaths, srcCodeVolume.name, "SrcSyncer", "-avh --chown=2001:2001")
+        if (srcCodePaths) {
+            srcSyncer = DirectorySyncer.createSyncToVolume(srcCodePaths, srcCodeVolume.name, "SrcSyncer", "-avh --chown=2001:2001")
+        }
         reportSyncer = DirectorySyncer.syncBetweenVolumesAndUsers(jiraReportVolume.name, allureReportVolume.name, "1000:1000", "ReportSyncer")
 
 
@@ -132,10 +134,11 @@ class JsmDevDeployment implements Deployment {
         }
 
         jsmDeployment.setupDeployment(builder.useSnapshotIfAvailable, builder.snapshotAfterCreation)
-        //Change owner of the mounted volume
-        jsmContainer.runBashCommandInContainer("chown -R jira:jira /var/atlassian/application-data/jira/allure-results", 10, "root")
+        //Change owner of the mounted volumes
+        jsmContainer.runBashCommandInContainer("chown -R jira:jira /var/atlassian/application-data/jira/", 10, "root")
 
         if (jsmDeployment.jiraRest.scriptRunnerIsInstalled()) {
+            jsmDeployment.jiraRest.waitForSrToBeResponsive()
             jsmDeployment.jiraRest.deploySpockEndpoint(['com.riadalabs.jira.plugins.insight'])
         }
 
