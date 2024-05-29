@@ -1,0 +1,6 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Wed May 29 07:49:52 UTC 2024
+devstack-2.3.25-sources.jar>=
+devstack-2.3.25-test-sources.jar>=
+devstack-2.3.25.pom>=
+devstack-2.3.25.jar>=
